@@ -1,5 +1,5 @@
 import React from 'react';
-import { Wallet, Users, Wrench, FileSpreadsheet, Receipt, LayoutDashboard, Settings } from 'lucide-react';
+import { Wallet, Users, Wrench, FileText, FileSpreadsheet, Receipt, LayoutDashboard, Settings } from 'lucide-react';
 import { TabType } from '../types';
 
 interface NavigationTabsProps {
@@ -12,6 +12,7 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({ activeTab, onTab
     { id: 'accounts', label: 'الحسابات', icon: <Wallet className="w-4 h-4" /> },
     { id: 'residents', label: 'السكان', icon: <Users className="w-4 h-4" /> },
     { id: 'extramaint', label: 'صيانة إضافية', icon: <Wrench className="w-4 h-4" /> },
+    { id: 'reports', label: 'كتاب التقارير', icon: <FileText className="w-4 h-4" />, isNew: true },
     { id: 'datasheet', label: 'كشف البيانات (الشيت)', icon: <FileSpreadsheet className="w-4 h-4" /> },
     { id: 'receipts', label: 'الإيصالات', icon: <Receipt className="w-4 h-4" /> },
     { id: 'debts', label: 'المديونيات', icon: <FileSpreadsheet className="w-4 h-4" /> },

@@ -241,8 +241,8 @@ export function getUsers(): DataEntryUser[] {
   }
   // Default primary admin user
   const defaultUsers: DataEntryUser[] = [
-    { username: 'Hany', role: 'admin' },
-    { username: 'مدخل 1', role: 'entry' }
+    { username: 'Hany', password: '552211', role: 'admin' },
+    { username: 'مدخل 1', password: '123', role: 'entry' }
   ];
   localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(defaultUsers));
   return defaultUsers;

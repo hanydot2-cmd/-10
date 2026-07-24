@@ -37,6 +37,7 @@ import { MobileBottomNav } from './components/MobileBottomNav';
 import { AccountsTab } from './components/AccountsTab';
 import { ResidentsTab } from './components/ResidentsTab';
 import { ExtraMaintenanceTab } from './components/ExtraMaintenanceTab';
+import { ReportsTab } from './components/ReportsTab';
 import { DataSheetTab } from './components/DataSheetTab';
 import { ReceiptsTab } from './components/ReceiptsTab';
 import { DebtsTab } from './components/DebtsTab';
@@ -352,7 +353,12 @@ export default function App() {
           />
         )}
 
-        {/* TAB 4: Data Sheet (كشف البيانات المرجعي / الشيت) */}
+        {/* TAB 4: Reports (كتاب التقارير) */}
+        {activeTab === 'reports' && (
+          <ReportsTab monthData={monthData} activeExtraMaint={activeExtraMaint} />
+        )}
+
+        {/* TAB 5: Data Sheet (كشف البيانات المرجعي / الشيت) */}
         {activeTab === 'datasheet' && (
           <DataSheetTab
             monthData={monthData}

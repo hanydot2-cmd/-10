@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Lock, KeyRound, X, ShieldAlert } from 'lucide-react';
+import { getUsers } from '../lib/storage';
 
 interface PasswordPromptModalProps {
   title?: string;
@@ -9,8 +10,8 @@ interface PasswordPromptModalProps {
 }
 
 export const PasswordPromptModal: React.FC<PasswordPromptModalProps> = ({
-  title = 'التحقق من صلاحية المشرف الرئيسي (هاني)',
-  description = 'تحديث وتعديل البيانات المدخلة يقتصر على المشرف الرئيسي (هاني). يرجى أدخل كلمة المرور السرية للمشرف:',
+  title = 'التحقق من صلاحية المشرف / مدخل البيانات',
+  description = 'تحديث وتعديل البيانات المدخلة يتطلب كلمة المرور الخاصة بالمشرف أو مدخل البيانات المخول:',
   onSuccess,
   onClose,
 }) => {
@@ -19,10 +20,14 @@ export const PasswordPromptModal: React.FC<PasswordPromptModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === '552211') {
+    const inputPwd = password.trim();
+    const registeredUsers = getUsers();
+    const isValid = inputPwd === '552211' || registeredUsers.some((u) => u.password === inputPwd);
+
+    if (isValid) {
       onSuccess();
     } else {
-      setError('❌ كلمة المرور غير صحيحة! يرجى إدخال كلمة مرور المشرف الصحيحة');
+      setError('❌ كلمة المرور غير صحيحة! يرجى إدخال كلمة مرور معتمدة');
       setPassword('');
     }
   };

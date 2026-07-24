@@ -57,7 +57,9 @@ export interface MonthData {
 
 export interface DataEntryUser {
   username: string;
+  password?: string;
   role: 'admin' | 'entry';
+  createdAt?: string;
 }
 
 export interface ContactItem {
@@ -73,6 +75,7 @@ export type TabType =
   | 'accounts' 
   | 'residents' 
   | 'extramaint' 
+  | 'reports'
   | 'datasheet' 
   | 'receipts' 
   | 'debts' 

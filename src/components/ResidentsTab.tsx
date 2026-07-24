@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Apartment, MonthData, ExtraMaintenance } from '../types';
 import { formatCurrency, formatNumber } from '../lib/buildingConfig';
-import { Search, Edit, CheckCircle, XCircle, Phone, MessageSquare, Save, X, Eye, EyeOff } from 'lucide-react';
+import { Search, Edit, CheckCircle, XCircle, Phone, MessageSquare, Save, X, Eye, EyeOff, Receipt } from 'lucide-react';
+import { ReceiptModal } from './ReceiptModal';
 
 interface ResidentsTabProps {
   monthData: MonthData;
@@ -19,6 +20,7 @@ export const ResidentsTab: React.FC<ResidentsTabProps> = ({
   const [searchTerm, setSearchName] = useState('');
   const [showClosed, setShowClosed] = useState(false);
   const [editingApt, setEditingApt] = useState<Apartment | null>(null);
+  const [selectedAptForReceipt, setSelectedAptForReceipt] = useState<Apartment | null>(null);
 
   // Form State for Resident Edit Modal
   const [formName, setFormName] = useState('');
@@ -192,6 +194,16 @@ export const ResidentsTab: React.FC<ResidentsTabProps> = ({
 
   return (
     <div className="space-y-6 animate-fadeIn">
+      {/* Individual Receipt Modal */}
+      {selectedAptForReceipt && (
+        <ReceiptModal
+          apartment={selectedAptForReceipt}
+          monthData={monthData}
+          activeExtraMaint={activeExtraMaint}
+          onClose={() => setSelectedAptForReceipt(null)}
+        />
+      )}
+
       {/* GLOBAL MONTHLY MAINTENANCE FEE INPUT PANEL */}
       <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-amber-950/40 border border-amber-500/40 rounded-2xl p-4 shadow-lg space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -370,6 +382,16 @@ export const ResidentsTab: React.FC<ResidentsTabProps> = ({
                     </td>
                     <td className="p-3 text-center">
                       <div className="flex items-center justify-center gap-1">
+                        {!apt.skip && (
+                          <button
+                            onClick={() => setSelectedAptForReceipt(apt)}
+                            className="p-1.5 bg-amber-500/20 hover:bg-amber-500 hover:text-slate-950 text-amber-300 rounded border border-amber-500/40 transition flex items-center gap-1 text-[11px] font-bold"
+                            title="إيصال سداد معتمد / PDF"
+                          >
+                            <Receipt className="w-3.5 h-3.5" />
+                            <span>إيصال</span>
+                          </button>
+                        )}
                         {apt.phone && (
                           <button
                             onClick={() => handleSendWhatsApp(apt)}

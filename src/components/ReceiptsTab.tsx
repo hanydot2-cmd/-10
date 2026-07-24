@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { MonthData, ExtraMaintenance, Apartment } from '../types';
 import { formatCurrency } from '../lib/buildingConfig';
-import { Receipt, Printer, MessageSquare, Search, FileText, CheckCircle2 } from 'lucide-react';
+import { Receipt, Printer, Search, ShieldCheck } from 'lucide-react';
+import { ReceiptModal } from './ReceiptModal';
 
 interface ReceiptsTabProps {
   monthData: MonthData;
@@ -31,6 +32,16 @@ export const ReceiptsTab: React.FC<ReceiptsTabProps> = ({ monthData, activeExtra
 
   return (
     <div className="space-y-6 animate-fadeIn">
+      {/* Individual Printable Receipt Modal */}
+      {selectedApt && (
+        <ReceiptModal
+          apartment={selectedApt}
+          monthData={monthData}
+          activeExtraMaint={activeExtraMaint}
+          onClose={() => setSelectedApt(null)}
+        />
+      )}
+
       {/* Top Action Bar */}
       <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -39,10 +50,10 @@ export const ReceiptsTab: React.FC<ReceiptsTabProps> = ({ monthData, activeExtra
           </div>
           <div>
             <h2 className="text-base font-black text-amber-400">
-              إيصالات التحصيل الشهري — {monthData.monthName} {monthData.year}
+              إيصالات التحصيل الشهري المعتمدة — {monthData.monthName} {monthData.year}
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              طباعة ومعاينة وإرسال الإيصالات للشقق المفتوحة ({openApartments.length} إيصال)
+              طباعة ومعاينة الإيصالات الرسمية مع الختم البيضاوي المعتمد للبرج ({openApartments.length} شقة)
             </p>
           </div>
         </div>
@@ -53,7 +64,7 @@ export const ReceiptsTab: React.FC<ReceiptsTabProps> = ({ monthData, activeExtra
             className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 text-slate-950 font-black px-4 py-2 rounded-xl text-xs shadow transition active:scale-95"
           >
             <Printer className="w-4 h-4" />
-            <span>طباعة الإيصالات (5 في الصفحة)</span>
+            <span>طباعة جميع الإيصالات / PDF</span>
           </button>
         </div>
       </div>
@@ -89,7 +100,7 @@ export const ReceiptsTab: React.FC<ReceiptsTabProps> = ({ monthData, activeExtra
                 {/* Header of Receipt */}
                 <div className="flex justify-between items-center pb-2 border-b border-slate-800 print:border-black">
                   <div>
-                    <h3 className="font-black text-amber-400 text-sm print:text-black">🏢 برج المعتز 10</h3>
+                    <h3 className="font-black text-amber-400 text-sm print:text-black">🏢 أبراج المعتز لله — برج 10</h3>
                     <p className="text-[10px] text-slate-400 print:text-gray-600">
                       إيصال تحصيل — {monthData.monthName} {monthData.year}
                     </p>
@@ -137,7 +148,7 @@ export const ReceiptsTab: React.FC<ReceiptsTabProps> = ({ monthData, activeExtra
                   </div>
                 </div>
 
-                {/* Status Stamp */}
+                {/* Status & Actions Bar */}
                 <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 print:border-gray-300">
                   <span
                     className={`text-xs font-black px-3 py-1 rounded-full ${
@@ -149,9 +160,13 @@ export const ReceiptsTab: React.FC<ReceiptsTabProps> = ({ monthData, activeExtra
                     {apt.paid ? 'مسدد ✓' : 'غير مسدد ✗'}
                   </span>
 
-                  <span className="text-[10px] text-slate-500 font-mono">
-                    تاريخ الإصدار: {new Date().toLocaleDateString('ar-EG')}
-                  </span>
+                  <button
+                    onClick={() => setSelectedApt(apt)}
+                    className="bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 font-bold px-3 py-1 rounded-lg text-xs border border-amber-500/40 transition flex items-center gap-1.5 print:hidden"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>طباعة إيصال فردي (بالختم الرسمى)</span>
+                  </button>
                 </div>
               </div>
             );
