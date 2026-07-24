@@ -83,13 +83,24 @@ export type TabType =
   | 'settings';
 
 export type AppTheme = 
+  | 'light' 
+  | 'light-emerald' 
+  | 'light-sapphire' 
+  | 'light-amber' 
+  | 'light-lavender' 
   | 'slate' 
   | 'midnight' 
   | 'navy' 
   | 'emerald' 
   | 'burgundy' 
   | 'violet' 
-  | 'charcoal' 
   | 'amber' 
-  | 'light' 
+  | 'charcoal' 
   | 'custom';
+
+export type AppFont = 
+  | 'ibm' 
+  | 'cairo' 
+  | 'tajawal' 
+  | 'almarai' 
+  | 'amiri';

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Settings, Trash2, Download, Upload, Users, Moon, Sun, ShieldAlert, Wifi, RefreshCw, KeyRound, CheckCircle2, XCircle, Palette, Check } from 'lucide-react';
+import { Settings, Trash2, Download, Upload, Users, Moon, Sun, ShieldAlert, Wifi, RefreshCw, KeyRound, CheckCircle2, XCircle, Palette, Check, Type } from 'lucide-react';
 import { testFirebaseConnection } from '../lib/firebase';
-import { AppTheme } from '../types';
+import { AppTheme, AppFont } from '../types';
 
 interface SettingsTabProps {
   isDarkMode: boolean;
@@ -10,8 +10,10 @@ interface SettingsTabProps {
   onResetAllData: () => void;
   isFirebaseConnected?: boolean;
   currentTheme?: AppTheme;
+  currentFont?: AppFont;
   customBgColor?: string;
   onSelectTheme?: (theme: AppTheme) => void;
+  onSelectFont?: (font: AppFont) => void;
   onSelectCustomColor?: (color: string) => void;
 }
 
@@ -21,9 +23,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   onOpenUsersModal,
   onResetAllData,
   isFirebaseConnected = true,
-  currentTheme = 'slate',
+  currentTheme = 'light',
+  currentFont = 'ibm',
   customBgColor = '#090d16',
   onSelectTheme,
+  onSelectFont,
   onSelectCustomColor,
 }) => {
   const [testing, setTesting] = useState(false);
@@ -183,67 +187,156 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           </div>
         </div>
 
-        {/* Dark/Light Mode */}
-        <div className="flex items-center justify-between py-4">
+        {/* Dark/Light Mode Switcher */}
+        <div className="flex items-center justify-between py-4 border-b border-slate-800">
           <div>
-            <span className="text-sm font-bold text-slate-200 block">🌙 المظهر والوضع الداكن</span>
-            <span className="text-xs text-slate-400">التبديل السريع بين الوضع الداكن والوضع النهاري</span>
+            <span className="text-sm font-bold text-slate-200 block">☀️ / 🌙 نمط العرض السريع (نهار / ليل)</span>
+            <span className="text-xs text-slate-400">التبديل الفوري بين الوضع النهاري ببطاقات ناصعة والوضع الداكن</span>
           </div>
           <button
             onClick={onToggleDarkMode}
-            className="flex items-center gap-2 bg-slate-800 border border-slate-700 hover:border-amber-400 text-amber-400 font-bold px-3 py-1.5 rounded-lg text-xs transition"
+            className={`flex items-center gap-2 font-bold px-4 py-2 rounded-xl text-xs transition shadow ${
+              !isDarkMode
+                ? 'bg-amber-400 text-slate-950 hover:bg-amber-300'
+                : 'bg-slate-800 text-amber-400 border border-slate-700 hover:border-amber-400'
+            }`}
           >
-            {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            <span>{isDarkMode ? 'الوضع النهاري' : 'الوضع الداكن'}</span>
+            {!isDarkMode ? <Sun className="w-4 h-4 fill-slate-950" /> : <Moon className="w-4 h-4" />}
+            <span>{!isDarkMode ? 'الوضع النهاري الفاتح (نشط)' : 'الوضع الداكن (نشط)'}</span>
           </button>
         </div>
 
-        {/* Theme & Full App Background Color Customizer (Requirement #4) */}
+        {/* Font Switcher (تغيير نوع الخط) */}
         <div className="py-4 space-y-3 border-b border-slate-800">
           <div className="flex items-center gap-2">
-            <Palette className="w-5 h-5 text-amber-400" />
+            <Type className="w-5 h-5 text-amber-400" />
             <div>
-              <span className="text-sm font-bold text-slate-200 block">🎨 ألوان خلفيات ونمط التطبيق بالكامل</span>
-              <span className="text-xs text-slate-400">يمكنك تغيير لون خلفية التطبيق بالكامل باللون المفضل لديك أو تحديد لون مخصص</span>
+              <span className="text-sm font-bold text-slate-200 block">🔤 نوع الخط العربي للتطبيق بالكامل</span>
+              <span className="text-xs text-slate-400">اختر الخط العربي المفضل لعرض كافة العناوين والجداول بالقراءة الأنسب</span>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 pt-1">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 pt-1">
             {[
-              { id: 'slate', label: 'الداكن الكحلي (الافتراضي)', bgGradient: 'from-slate-900 to-slate-950 border-slate-700' },
-              { id: 'midnight', label: 'الأسود الملكي الفاخر', bgGradient: 'from-zinc-950 to-black border-zinc-800' },
-              { id: 'navy', label: 'الأزرق الملكي العميق', bgGradient: 'from-blue-950 to-slate-950 border-blue-800' },
-              { id: 'emerald', label: 'الزمردي الداكن الفاخر', bgGradient: 'from-emerald-950 to-slate-950 border-emerald-800' },
-              { id: 'burgundy', label: 'العنابي الملكي الداكن', bgGradient: 'from-rose-950 to-slate-950 border-rose-800' },
-              { id: 'violet', label: 'البنفسجي الليلكي', bgGradient: 'from-purple-950 to-slate-950 border-purple-800' },
-              { id: 'amber', label: 'البرونزي الدافئ', bgGradient: 'from-amber-950 to-stone-950 border-amber-800' },
-              { id: 'charcoal', label: 'الفحمي الداكن', bgGradient: 'from-zinc-900 to-zinc-950 border-zinc-700' },
-              { id: 'light', label: 'النهار الفاتح الناصع', bgGradient: 'from-slate-100 to-slate-200 border-slate-300' },
-            ].map((t) => {
-              const isSelected = currentTheme === t.id;
+              { id: 'ibm', name: 'IBM Plex Arabic', label: 'الخط المعياري الرسمي', fontClass: 'font-ibm' },
+              { id: 'cairo', name: 'Cairo', label: 'خط كايرو البارز', fontClass: 'font-cairo' },
+              { id: 'tajawal', name: 'Tajawal', label: 'خط تجوال العصري', fontClass: 'font-tajawal' },
+              { id: 'almarai', name: 'Almarai', label: 'خط المراعي المريح', fontClass: 'font-almarai' },
+              { id: 'amiri', name: 'Amiri', label: 'خط أميري الكلاسيكي', fontClass: 'font-amiri' },
+            ].map((f) => {
+              const isSelected = currentFont === f.id;
               return (
                 <button
-                  key={t.id}
-                  onClick={() => onSelectTheme && onSelectTheme(t.id as AppTheme)}
-                  className={`relative p-3 rounded-xl border transition text-right bg-gradient-to-br ${t.bgGradient} ${
+                  key={f.id}
+                  onClick={() => onSelectFont && onSelectFont(f.id as AppFont)}
+                  className={`p-3 rounded-xl border transition text-center flex flex-col items-center justify-between gap-1.5 ${f.fontClass} ${
                     isSelected
-                      ? 'border-amber-400 ring-2 ring-amber-400/40 shadow-lg scale-[1.02]'
-                      : 'hover:border-amber-400/50'
+                      ? 'bg-amber-500/20 border-amber-400 ring-2 ring-amber-400/30 text-amber-300'
+                      : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-600'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className={`text-[11px] font-black ${t.id === 'light' ? 'text-slate-900' : 'text-slate-100'}`}>
-                      {t.label}
+                  <span className="text-sm font-bold block">{f.name}</span>
+                  <span className="text-[10px] text-slate-400 block">{f.label}</span>
+                  {isSelected && (
+                    <span className="mt-1 p-0.5 bg-amber-400 text-slate-950 rounded-full">
+                      <Check className="w-3 h-3 stroke-[3]" />
                     </span>
-                    {isSelected && (
-                      <span className="p-1 bg-amber-400 text-slate-950 rounded-full shrink-0">
-                        <Check className="w-3 h-3 stroke-[3]" />
-                      </span>
-                    )}
-                  </div>
+                  )}
                 </button>
               );
             })}
+          </div>
+        </div>
+
+        {/* Theme Customizer (ثيمات فاتحة للنهار وثيمات داكنة) */}
+        <div className="py-4 space-y-4 border-b border-slate-800">
+          <div className="flex items-center gap-2">
+            <Palette className="w-5 h-5 text-amber-400" />
+            <div>
+              <span className="text-sm font-bold text-slate-200 block">🎨 الثيمات الكاملة (تغيير المظهر والخطوط والألوان)</span>
+              <span className="text-xs text-slate-400">اختر من بين الثيمات النهارية المشرقة أو الثيمات الليلية الفاخرة</span>
+            </div>
+          </div>
+
+          {/* Group 1: LIGHT Themes (☀️ ثيمات الوضع النهاري الفاتح) */}
+          <div className="space-y-2">
+            <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+              <Sun className="w-4 h-4 text-amber-400" />
+              <span>☀️ ثيمات فاتحة ناصعة (الوضع النهاري الممتاز):</span>
+            </span>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
+              {[
+                { id: 'light', label: 'النهار الأبيض الناصع', bgGradient: 'from-slate-100 via-white to-slate-200 border-slate-300 text-slate-900' },
+                { id: 'light-emerald', label: 'الزمردي الفاتح الناصع', bgGradient: 'from-emerald-100 via-emerald-50 to-teal-100 border-emerald-300 text-emerald-950' },
+                { id: 'light-sapphire', label: 'الأزرق الملكي الفاتح', bgGradient: 'from-sky-100 via-blue-50 to-indigo-100 border-sky-300 text-slate-900' },
+                { id: 'light-amber', label: 'الشمس الدافئة الذهبية', bgGradient: 'from-amber-100 via-amber-50 to-orange-100 border-amber-300 text-amber-950' },
+                { id: 'light-lavender', label: 'البنفسجي الليلكي الفاتح', bgGradient: 'from-purple-100 via-purple-50 to-fuchsia-100 border-purple-300 text-purple-950' },
+              ].map((t) => {
+                const isSelected = currentTheme === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => onSelectTheme && onSelectTheme(t.id as AppTheme)}
+                    className={`relative p-3 rounded-xl border transition text-right bg-gradient-to-br ${t.bgGradient} ${
+                      isSelected
+                        ? 'border-amber-500 ring-2 ring-amber-400/50 shadow-lg scale-[1.02]'
+                        : 'hover:border-slate-400'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-black">{t.label}</span>
+                      {isSelected && (
+                        <span className="p-1 bg-amber-500 text-slate-950 rounded-full shrink-0">
+                          <Check className="w-3 h-3 stroke-[3]" />
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Group 2: DARK Themes (🌙 ثيمات الوضع الداكن) */}
+          <div className="space-y-2 pt-2">
+            <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+              <Moon className="w-4 h-4 text-amber-400" />
+              <span>🌙 ثيمات داكنة فاخرة (الوضع الليلكي):</span>
+            </span>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+              {[
+                { id: 'slate', label: 'الكحلي الداكن الرسمي', bgGradient: 'from-slate-900 to-slate-950 border-slate-700 text-slate-100' },
+                { id: 'midnight', label: 'الأسود الملكي الفاخر', bgGradient: 'from-zinc-950 to-black border-zinc-800 text-zinc-100' },
+                { id: 'navy', label: 'الأزرق العميق الداكن', bgGradient: 'from-blue-950 to-slate-950 border-blue-800 text-blue-100' },
+                { id: 'emerald', label: 'الزمردي الداكن الفاخر', bgGradient: 'from-emerald-950 to-slate-950 border-emerald-800 text-emerald-100' },
+                { id: 'burgundy', label: 'العنابي الملكي الداكن', bgGradient: 'from-rose-950 to-slate-950 border-rose-800 text-rose-100' },
+                { id: 'violet', label: 'البنفسجي الداكن', bgGradient: 'from-purple-950 to-slate-950 border-purple-800 text-purple-100' },
+                { id: 'amber', label: 'البرونزي الدافئ', bgGradient: 'from-amber-950 to-stone-950 border-amber-800 text-amber-100' },
+                { id: 'charcoal', label: 'الفحمي الداكن', bgGradient: 'from-zinc-900 to-zinc-950 border-zinc-700 text-zinc-100' },
+              ].map((t) => {
+                const isSelected = currentTheme === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => onSelectTheme && onSelectTheme(t.id as AppTheme)}
+                    className={`relative p-3 rounded-xl border transition text-right bg-gradient-to-br ${t.bgGradient} ${
+                      isSelected
+                        ? 'border-amber-400 ring-2 ring-amber-400/40 shadow-lg scale-[1.02]'
+                        : 'hover:border-amber-400/50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-black">{t.label}</span>
+                      {isSelected && (
+                        <span className="p-1 bg-amber-400 text-slate-950 rounded-full shrink-0">
+                          <Check className="w-3 h-3 stroke-[3]" />
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Custom Hex Color Picker for Entire Application Background */}

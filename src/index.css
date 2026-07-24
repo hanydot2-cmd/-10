@@ -8,6 +8,23 @@
   }
 }
 
+/* Font Classes */
+.font-ibm {
+  font-family: 'IBM Plex Sans Arabic', sans-serif !important;
+}
+.font-cairo {
+  font-family: 'Cairo', sans-serif !important;
+}
+.font-tajawal {
+  font-family: 'Tajawal', sans-serif !important;
+}
+.font-almarai {
+  font-family: 'Almarai', sans-serif !important;
+}
+.font-amiri {
+  font-family: 'Amiri', serif !important;
+}
+
 /* Custom styles for bold typography design */
 .stat-value-bold {
   font-weight: 800;
@@ -28,4 +45,113 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(148, 163, 184, 0.5);
+}
+
+/* -------------------------------------------------------------------------- */
+/* LIGHT MODE AUTOMATIC CARDS & CONTRAST OVERRIDES                            */
+/* -------------------------------------------------------------------------- */
+.app-light-mode {
+  color: #0f172a !important;
+}
+
+.app-light-mode .bg-slate-900,
+.app-light-mode .bg-slate-900\/90,
+.app-light-mode .bg-slate-900\/80,
+.app-light-mode .bg-slate-900\/70,
+.app-light-mode .bg-slate-900\/60,
+.app-light-mode .bg-slate-950,
+.app-light-mode .bg-slate-950\/80,
+.app-light-mode .bg-slate-950\/60,
+.app-light-mode .bg-slate-950\/50,
+.app-light-mode .bg-slate-800,
+.app-light-mode .bg-slate-800\/90,
+.app-light-mode .bg-slate-800\/80,
+.app-light-mode .bg-slate-800\/60,
+.app-light-mode .bg-slate-800\/40,
+.app-light-mode .bg-zinc-950,
+.app-light-mode .bg-zinc-900 {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.08) !important;
+}
+
+.app-light-mode .border-slate-800,
+.app-light-mode .border-slate-700,
+.app-light-mode .border-slate-700\/80,
+.app-light-mode .border-slate-600 {
+  border-color: #cbd5e1 !important;
+}
+
+.app-light-mode .text-slate-100,
+.app-light-mode .text-slate-200,
+.app-light-mode .text-slate-300 {
+  color: #0f172a !important;
+}
+
+.app-light-mode .text-slate-400,
+.app-light-mode .text-slate-500 {
+  color: #475569 !important;
+}
+
+.app-light-mode input:not([type="checkbox"]):not([type="radio"]),
+.app-light-mode select,
+.app-light-mode textarea {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+.app-light-mode input:focus,
+.app-light-mode select:focus,
+.app-light-mode textarea:focus {
+  background-color: #ffffff !important;
+  border-color: #2563eb !important;
+}
+
+.app-light-mode .divide-slate-800 > :not([hidden]) ~ :not([hidden]),
+.app-light-mode .divide-slate-700 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #e2e8f0 !important;
+}
+
+.app-light-mode header,
+.app-light-mode nav {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border-color: #cbd5e1 !important;
+}
+
+/* Light Theme Background Variants */
+.theme-light {
+  background-color: #f8fafc !important;
+}
+.theme-light-emerald {
+  background-color: #f0fdf4 !important;
+}
+.theme-light-emerald .app-light-mode .bg-slate-900,
+.theme-light-emerald .app-light-mode .bg-slate-950 {
+  border-color: #a7f3d0 !important;
+}
+
+.theme-light-sapphire {
+  background-color: #f0f9ff !important;
+}
+.theme-light-sapphire .app-light-mode .bg-slate-900,
+.theme-light-sapphire .app-light-mode .bg-slate-950 {
+  border-color: #bae6fd !important;
+}
+
+.theme-light-amber {
+  background-color: #fffbeb !important;
+}
+.theme-light-amber .app-light-mode .bg-slate-900,
+.theme-light-amber .app-light-mode .bg-slate-950 {
+  border-color: #fde68a !important;
+}
+
+.theme-light-lavender {
+  background-color: #faf5ff !important;
+}
+.theme-light-lavender .app-light-mode .bg-slate-900,
+.theme-light-lavender .app-light-mode .bg-slate-950 {
+  border-color: #e9d5ff !important;
 }

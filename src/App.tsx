@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TabType, MonthData, ExtraMaintenance, DebtItem, DataEntryUser, Apartment, AppTheme } from './types';
+import { TabType, MonthData, ExtraMaintenance, DebtItem, DataEntryUser, Apartment, AppTheme, AppFont } from './types';
 import {
   getCurrentMonthKey,
   setCurrentMonthKey,
@@ -50,7 +50,10 @@ import { PasswordPromptModal } from './components/PasswordPromptModal';
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabType>('accounts');
   const [appTheme, setAppTheme] = useState<AppTheme>(
-    () => (localStorage.getItem('bmu10_theme') as AppTheme) || 'slate'
+    () => (localStorage.getItem('bmu10_theme') as AppTheme) || 'light'
+  );
+  const [appFont, setAppFont] = useState<AppFont>(
+    () => (localStorage.getItem('bmu10_font') as AppFont) || 'ibm'
   );
   const [customBgColor, setCustomBgColor] = useState<string>(
     () => localStorage.getItem('bmu10_custom_bg_color') || '#090d16'
@@ -62,16 +65,42 @@ export default function App() {
   );
   const [debts, setDebtsState] = useState<DebtItem[]>(() => getDebts());
   const [users, setUsersState] = useState<DataEntryUser[]>(() => getUsers());
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    const saved = localStorage.getItem('bmu10_dark');
+    if (saved !== null) return saved === 'true';
+    const savedTheme = localStorage.getItem('bmu10_theme');
+    if (savedTheme && !savedTheme.startsWith('light')) return true;
+    return false; // Default to Light Mode!
+  });
   const [isFirebaseConnected, setIsFirebaseConnected] = useState<boolean>(true);
 
   const handleSelectTheme = (theme: AppTheme) => {
     setAppTheme(theme);
     localStorage.setItem('bmu10_theme', theme);
-    if (theme === 'light') {
+    if (theme.startsWith('light')) {
       setIsDarkMode(false);
-    } else {
+      localStorage.setItem('bmu10_dark', 'false');
+    } else if (theme !== 'custom') {
       setIsDarkMode(true);
+      localStorage.setItem('bmu10_dark', 'true');
+    }
+  };
+
+  const handleSelectFont = (font: AppFont) => {
+    setAppFont(font);
+    localStorage.setItem('bmu10_font', font);
+  };
+
+  const handleToggleDarkMode = () => {
+    const nextMode = !isDarkMode;
+    setIsDarkMode(nextMode);
+    localStorage.setItem('bmu10_dark', String(nextMode));
+    if (!nextMode && !appTheme.startsWith('light')) {
+      setAppTheme('light');
+      localStorage.setItem('bmu10_theme', 'light');
+    } else if (nextMode && appTheme.startsWith('light')) {
+      setAppTheme('slate');
+      localStorage.setItem('bmu10_theme', 'slate');
     }
   };
 
@@ -268,7 +297,22 @@ export default function App() {
 
   // Dynamic Theme Background calculation for full app
   const getThemeBackgroundClass = () => {
-    if (!isDarkMode || appTheme === 'light') return 'bg-slate-100 text-slate-900';
+    if (!isDarkMode || appTheme.startsWith('light')) {
+      switch (appTheme) {
+        case 'light-emerald':
+          return 'theme-light-emerald app-light-mode bg-emerald-50 text-slate-900';
+        case 'light-sapphire':
+          return 'theme-light-sapphire app-light-mode bg-sky-50 text-slate-900';
+        case 'light-amber':
+          return 'theme-light-amber app-light-mode bg-amber-50/80 text-slate-900';
+        case 'light-lavender':
+          return 'theme-light-lavender app-light-mode bg-purple-50 text-slate-900';
+        case 'light':
+        default:
+          return 'theme-light app-light-mode bg-slate-100 text-slate-900';
+      }
+    }
+
     switch (appTheme) {
       case 'midnight':
         return 'bg-black text-zinc-100';
@@ -281,7 +325,7 @@ export default function App() {
       case 'violet':
         return 'bg-slate-950 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-950 via-slate-950 to-slate-950 text-slate-100';
       case 'amber':
-        return 'bg-slate-950 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-950 via-slate-950 to-slate-950 text-slate-100';
+        return 'bg-slate-950 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-950 via-stone-950 to-slate-950 text-slate-100';
       case 'charcoal':
         return 'bg-zinc-950 text-zinc-100';
       case 'custom':
@@ -301,7 +345,7 @@ export default function App() {
 
   return (
     <div
-      className={`min-h-screen ${getThemeBackgroundClass()} pb-16 md:pb-0 transition-colors duration-300`}
+      className={`min-h-screen ${getThemeBackgroundClass()} font-${appFont} pb-16 md:pb-0 transition-colors duration-300`}
       style={getCustomStyle()}
       dir="rtl"
     >
@@ -312,7 +356,7 @@ export default function App() {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         isDarkMode={isDarkMode}
-        onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
+        onToggleDarkMode={handleToggleDarkMode}
         onOpenCollectionPanel={() => setIsCollectionPanelOpen(true)}
         onOpenUsersModal={() => setIsUsersModalOpen(true)}
       />
@@ -397,13 +441,15 @@ export default function App() {
         {activeTab === 'settings' && (
           <SettingsTab
             isDarkMode={isDarkMode}
-            onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
+            onToggleDarkMode={handleToggleDarkMode}
             onOpenUsersModal={() => setIsUsersModalOpen(true)}
             onResetAllData={handleResetAllData}
             isFirebaseConnected={isFirebaseConnected}
             currentTheme={appTheme}
+            currentFont={appFont}
             customBgColor={customBgColor}
             onSelectTheme={handleSelectTheme}
+            onSelectFont={handleSelectFont}
             onSelectCustomColor={handleSelectCustomColor}
           />
         )}
