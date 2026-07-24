@@ -1,0 +1,6 @@
+{
+  "name": "نظام إدارة برج المعتز 10",
+  "description": "تطبيق إدارة الحسابات والسكان والإيصالات والمديونيات لبرج المعتز 10",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
