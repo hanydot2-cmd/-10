@@ -301,7 +301,7 @@ export const ReceiptsTab: React.FC<ReceiptsTabProps> = ({ monthData, activeExtra
       </div>
 
       {/* PRINT-ONLY AREA: Exactly 5 Receipts Per Page formatted for A4 */}
-      <div className="hidden print:block print-bulk-area">
+      <div className={`hidden ${selectedApt ? 'no-print' : 'print:block'} print-bulk-area`}>
         {apartmentChunks.length === 0 ? (
           <div className="text-center p-8 text-black font-bold">لا توجد إيصالات للطباعة</div>
         ) : (

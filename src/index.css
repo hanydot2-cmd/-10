@@ -184,7 +184,13 @@
     display: none !important;
   }
 
-  /* SINGLE RECEIPT PRINTING MODE: Hide everything except the printable single receipt card */
+  /* SINGLE RECEIPT PRINTING MODE: Remove bulk print container from print layout */
+  body.printing-single-receipt .print-bulk-area,
+  body.printing-single-receipt header,
+  body.printing-single-receipt nav {
+    display: none !important;
+  }
+
   body.printing-single-receipt * {
     visibility: hidden !important;
   }
@@ -199,7 +205,7 @@
     left: 0 !important;
     right: 0 !important;
     top: 0 !important;
-    margin: 0 auto !important;
+    margin: 10mm auto 0 auto !important;
     width: 100% !important;
     max-width: 170mm !important;
     border: 2px solid #0f172a !important;
