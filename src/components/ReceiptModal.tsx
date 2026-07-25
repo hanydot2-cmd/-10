@@ -185,146 +185,80 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
         </div>
 
         {/* Printable & Captureable Receipt Body */}
-        <div className="p-6 overflow-y-auto bg-slate-950 print:bg-white print:text-black print:p-8 print:w-full">
+        <div className="p-6 overflow-y-auto bg-slate-950 print:bg-white print:text-black print:p-8 print:w-full flex justify-center">
           <div
             ref={receiptRef}
-            className="single-receipt-card-printable bg-white text-black border-2 border-amber-600 print:border-slate-800 rounded-2xl p-6 space-y-5 relative shadow-xl print:shadow-none font-sans"
+            className="single-receipt-card-printable w-full max-w-[170mm] bg-white text-black border-2 border-slate-900 rounded-xl p-4 shadow-xl print:shadow-none font-sans space-y-3"
           >
-            {/* Watermark / Background stamp header */}
-            <div className="flex justify-between items-start border-b-2 border-amber-600 print:border-slate-800 pb-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <Building className="w-6 h-6 text-slate-900" />
-                  <h1 className="text-lg font-black text-slate-900 tracking-wide">
-                    أبراج المعتز لله — برج 10
-                  </h1>
-                </div>
-                <p className="text-xs text-slate-800 font-bold">
-                  اتحاد الملاك — إدارة البرج والشؤون المالية
-                </p>
-                <p className="text-[11px] text-slate-600">
-                  العنوان: برج المعتز 10 — 12 دور (160 شقة)
+            {/* Top Row Header */}
+            <div className="flex justify-between items-center pb-2 border-b-2 border-slate-900">
+              <div>
+                <h3 className="font-black text-sm text-black leading-tight">
+                  أبراج المعتز لله — برج 10 (إيصال تحصيل رسوم صيانة)
+                </h3>
+                <p className="text-xs text-slate-700 font-bold mt-0.5">
+                  اتحاد الملاك — شهر {monthData.monthName} {monthData.year}
                 </p>
               </div>
-
-              <div className="text-left space-y-1">
-                <div className="inline-block bg-slate-100 border border-slate-400 text-slate-900 font-mono font-bold text-xs px-3 py-1 rounded-lg">
-                  رقم الإيصال: #{apartment.aptNumber}-{monthData.key.replace('-', '')}
-                </div>
-                <p className="text-[10px] text-slate-600 font-semibold dir-rtl">
-                  التاريخ: {issueDate}
-                </p>
+              <div className="border-2 border-slate-900 text-black font-mono font-black text-xs px-3 py-1 rounded-lg bg-slate-100 shadow-xs">
+                شقة {apartment.aptNumber} (الدور {apartment.floor}) {apartment.skip ? '[شقة مغلقة]' : ''}
               </div>
             </div>
 
-            {/* Title Badge */}
-            <div className="text-center my-2">
-              <span className="inline-block bg-slate-100 border border-slate-400 text-slate-900 font-black text-sm px-6 py-1.5 rounded-full shadow-inner">
-                إيصال تحصيل رسوم الصيانة — {monthData.monthName} {monthData.year}
-              </span>
-            </div>
-
-            {/* Resident Details Grid */}
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-300">
-                <span className="text-[10px] text-slate-600 block mb-0.5 font-bold">اسم الساكن المحصل منه:</span>
-                <span className="font-black text-sm text-slate-900">{apartment.name || 'غير محدد'}</span>
-              </div>
-
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-300">
-                <span className="text-[10px] text-slate-600 block mb-0.5 font-bold">رقم الشقة والدور:</span>
-                <span className="font-black text-sm text-slate-900">
-                  شقة {apartment.aptNumber} (الدور {apartment.floor})
+            {/* Resident & Financial Breakdown */}
+            <div className="grid grid-cols-12 gap-2 my-2 text-xs items-center">
+              <div className="col-span-5 bg-slate-50 p-2.5 rounded-lg border border-slate-300 shadow-xs">
+                <span className="text-[10px] text-slate-600 block font-bold mb-0.5">اسم الساكن:</span>
+                <span className="font-bold text-black text-sm block truncate">
+                  {apartment.name || 'غير محدد'}
                 </span>
               </div>
-            </div>
 
-            {/* Financial Breakdown Table */}
-            <div className="border border-slate-300 rounded-xl overflow-hidden text-xs">
-              <div className="bg-slate-200 p-2.5 font-bold text-slate-900 grid grid-cols-3 text-center border-b border-slate-300">
-                <span>بيان الرسوم المحصلة</span>
-                <span>الحالة</span>
-                <span>المبلغ</span>
-              </div>
-
-              <div className="divide-y divide-slate-300 bg-white text-slate-900">
-                {/* Monthly Base Maintenance */}
-                <div className="p-2.5 grid grid-cols-3 text-center items-center">
-                  <span className="font-semibold text-right pr-2">اشتراك الصيانة الشهري الأساسي</span>
-                  <span>
-                    {apartment.paid ? (
-                      <span className="text-emerald-800 font-black">مسدد بالكامل ✓</span>
-                    ) : (
-                      <span className="text-rose-800 font-black">غير مسدد ✗</span>
-                    )}
-                  </span>
-                  <span className="font-mono font-bold text-slate-900 dir-ltr">
-                    {formatCurrency(apartment.amount)}
+              <div className="col-span-7 bg-slate-50 p-2.5 rounded-lg border border-slate-300 grid grid-cols-3 text-center items-center gap-1 shadow-xs">
+                <div>
+                  <span className="text-[10px] text-slate-600 block font-semibold">الصيانة:</span>
+                  <span className="font-mono font-bold text-black dir-ltr text-xs">
+                    {formatCurrency(apartment.skip ? 100 : (apartment.amount || 0))}
                   </span>
                 </div>
-
-                {/* Extra Maintenance if present */}
-                {activeExtraMaint && (
-                  <div className="p-2.5 grid grid-cols-3 text-center items-center">
-                    <span className="font-semibold text-right pr-2">
-                      صيانة إضافية ({activeExtraMaint.title})
-                    </span>
-                    <span>
-                      {apartment.paidExtraMaint ? (
-                        <span className="text-emerald-800 font-black">مسدد ✓</span>
-                      ) : (
-                        <span className="text-amber-800 font-black">غير مسدد</span>
-                      )}
-                    </span>
-                    <span className="font-mono font-bold text-slate-900 dir-ltr">
-                      {formatCurrency(extraAmount)}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Total Amount Row */}
-              <div className="bg-slate-100 p-3 font-black text-sm flex justify-between items-center border-t border-slate-400">
-                <span className="text-slate-900">المبلغ الإجمالي المحصل:</span>
-                <span className="text-slate-900 text-base font-mono font-black dir-ltr">
-                  {formatCurrency(totalAmount)}
-                </span>
+                <div>
+                  <span className="text-[10px] text-slate-600 block font-semibold">إضافية:</span>
+                  <span className="font-mono font-bold text-black dir-ltr text-xs">
+                    {formatCurrency(extraAmount)}
+                  </span>
+                </div>
+                <div className="border-r-2 border-slate-300 pr-1">
+                  <span className="text-[10px] text-black font-black block">الإجمالي:</span>
+                  <span className="font-mono font-black text-black dir-ltr text-xs text-emerald-800">
+                    {formatCurrency(totalAmount)}
+                  </span>
+                </div>
               </div>
             </div>
 
-            {/* Confirmation Note & Stamp / Signatures */}
-            <div className="pt-2 grid grid-cols-2 gap-4 items-end border-t border-slate-300">
-              {/* Right: Notes */}
-              <div className="space-y-2 text-[11px] text-slate-700">
-                <div className="flex items-center gap-1.5 text-emerald-800 font-bold">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-700" />
-                  <span>تم استلام المبلغ الموضح أعلاه ونشكركم على التزامكم.</span>
-                </div>
-                <p className="text-[10px] text-slate-600 font-semibold">
-                  ملاحظة: هذا الإيصال إلكتروني ومعتمد رسمياً من اتحاد الملاك وإدارة أبراج المعتز لله برج 10.
-                </p>
+            {/* Bottom Status & Official Oval Stamp */}
+            <div className="flex justify-between items-center pt-2 border-t border-slate-800">
+              <div className="flex items-center gap-3">
+                <span
+                  className={`text-xs font-black px-3 py-1 rounded-md border ${
+                    apartment.paid
+                      ? 'bg-emerald-100 text-emerald-950 border-emerald-600'
+                      : 'bg-rose-100 text-rose-950 border-rose-600'
+                  }`}
+                >
+                  {apartment.paid ? 'تم السداد بالكامل ✓' : 'غير مسدد ✗'}
+                </span>
+                <span className="text-[10px] text-slate-600 font-semibold">
+                  تحرير: {issueDate}
+                </span>
               </div>
 
-              {/* Left: Signature & Official Oval Stamp */}
-              <div className="flex flex-col items-center justify-end space-y-1 relative pr-4">
-                <span className="text-xs font-bold text-slate-900">
-                  الاعتماد والتوقيع:
-                </span>
-                <div className="h-8 flex items-center justify-center text-slate-900 font-black text-sm">
-                  اتحاد الملاك
-                </div>
-
-                {/* Official Oval Stamp */}
-                <div className="relative mt-1 inline-flex items-center justify-center select-none text-blue-900 border-4 border-double border-blue-900 rounded-[50%] p-2 rotate-[-7deg] bg-transparent shadow-sm w-36 h-24">
-                  <div className="absolute inset-1 border border-dashed border-blue-800 rounded-[50%]" />
-                  <div className="text-center leading-tight">
-                    <div className="text-[10px] font-black tracking-tight text-blue-900">★ أبراج المعتز لله ★</div>
-                    <div className="text-xs font-black my-0.5 text-blue-950 underline decoration-blue-800 decoration-1 underline-offset-2">
-                      برج 10
-                    </div>
-                    <div className="text-[9px] font-bold text-blue-800">إيصال معتمد - الحسابات</div>
-                    <div className="text-[8px] font-mono text-blue-800 mt-0.5">اتحاد الملاك</div>
-                  </div>
+              {/* Official Oval Stamp (الختم البيضاوي المعتمد) */}
+              <div className="relative inline-flex items-center justify-center select-none text-blue-900 border-2 border-double border-blue-900 rounded-[50%] px-3 py-1 rotate-[-4deg] bg-transparent w-32 h-12 shadow-xs">
+                <div className="text-center leading-tight">
+                  <div className="text-[8px] font-black text-blue-900">★ أبراج المعتز لله ★</div>
+                  <div className="text-[9px] font-black text-blue-950">برج 10</div>
+                  <div className="text-[7px] font-bold text-blue-800">إيصال معتمد - الحسابات</div>
                 </div>
               </div>
             </div>
