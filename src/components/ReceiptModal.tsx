@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Apartment, MonthData, ExtraMaintenance } from '../types';
 import { formatCurrency } from '../lib/buildingConfig';
 import { Printer, X, CheckCircle2, Building, ShieldCheck, Download, Share2, Image, MessageSquare } from 'lucide-react';
-import html2canvas from 'html2canvas';
+import { toBlob } from 'html-to-image';
 
 interface ReceiptModalProps {
   apartment: Apartment;
@@ -45,31 +45,21 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
     setIsGeneratingImage(true);
 
     try {
-      // Race html2canvas with a 3-second timeout guard to prevent app freezing
-      const canvasPromise = html2canvas(receiptRef.current, {
-        scale: 1.5, // optimal quality & fast render
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
+      const blobPromise = toBlob(receiptRef.current, {
+        pixelRatio: 2,
         backgroundColor: '#ffffff',
+        cacheBust: true,
       });
 
       const timeoutPromise = new Promise<null>((resolve) => {
         setTimeout(() => {
-          console.warn('Canvas image generation timed out');
+          console.warn('Image generation timed out');
           resolve(null);
-        }, 3000);
+        }, 5000);
       });
 
-      const canvas = await Promise.race([canvasPromise, timeoutPromise]);
-
-      if (!canvas) {
-        return null;
-      }
-
-      return new Promise((resolve) => {
-        canvas.toBlob((blob) => resolve(blob), 'image/png');
-      });
+      const blob = await Promise.race([blobPromise, timeoutPromise]);
+      return blob;
     } catch (err) {
       console.error('Error generating receipt image:', err);
       return null;
