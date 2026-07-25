@@ -46,9 +46,35 @@ import { SettingsTab } from './components/SettingsTab';
 import { CollectionPanelView } from './components/CollectionPanelView';
 import { UsersManagementModal } from './components/UsersManagementModal';
 import { PasswordPromptModal } from './components/PasswordPromptModal';
+import { LoginModal, ActiveUser } from './components/LoginModal';
 
 export default function App() {
+  const [currentUser, setCurrentUser] = useState<ActiveUser | null>(() => {
+    const saved = localStorage.getItem('bmu10_active_user');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return null;
+  });
+
   const [activeTab, setActiveTab] = useState<TabType>('accounts');
+
+  const handleLogin = (user: ActiveUser) => {
+    setCurrentUser(user);
+    localStorage.setItem('bmu10_active_user', JSON.stringify(user));
+    if (user.role === 'entry') {
+      setActiveTab('accounts');
+      setIsCollectionPanelOpen(true);
+    }
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem('bmu10_active_user');
+    setIsCollectionPanelOpen(false);
+  };
   const [appTheme, setAppTheme] = useState<AppTheme>(
     () => (localStorage.getItem('bmu10_theme') as AppTheme) || 'light'
   );
@@ -349,6 +375,9 @@ export default function App() {
       style={getCustomStyle()}
       dir="rtl"
     >
+      {/* Login Screen Gate */}
+      {!currentUser && <LoginModal users={users} onLogin={handleLogin} />}
+
       {/* App Header */}
       <Header
         currentMonthKey={currentMonthKey}
@@ -359,10 +388,16 @@ export default function App() {
         onToggleDarkMode={handleToggleDarkMode}
         onOpenCollectionPanel={() => setIsCollectionPanelOpen(true)}
         onOpenUsersModal={() => setIsUsersModalOpen(true)}
+        currentUser={currentUser}
+        onLogout={handleLogout}
       />
 
       {/* Main Desktop Tab Bar */}
-      <NavigationTabs activeTab={activeTab} onTabChange={setActiveTab} />
+      <NavigationTabs
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        userRole={currentUser?.role}
+      />
 
       {/* Primary Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-6">
@@ -456,7 +491,11 @@ export default function App() {
       </main>
 
       {/* Mobile Bottom Navigation Bar */}
-      <MobileBottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+      <MobileBottomNav
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        userRole={currentUser?.role}
+      />
 
       {/* Quick Collection Panel Modal */}
       {isCollectionPanelOpen && (

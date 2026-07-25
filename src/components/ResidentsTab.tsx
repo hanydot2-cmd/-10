@@ -59,9 +59,10 @@ export const ResidentsTab: React.FC<ResidentsTabProps> = ({
   const handleApplyFeeToAll = () => {
     if (globalMaintenanceFee <= 0) return;
 
+    // Open apartments get globalMaintenanceFee, Closed apartments get 100 EGP
     const updatedApts = monthData.apartments.map((a) => ({
       ...a,
-      amount: globalMaintenanceFee,
+      amount: a.skip ? 100 : globalMaintenanceFee,
     }));
 
     // Recalculate auto collected amount if not manually locked
@@ -114,6 +115,14 @@ export const ResidentsTab: React.FC<ResidentsTabProps> = ({
     const wasPaidBefore = editingApt.paid;
     const isNowPaid = formPaid;
 
+    // For closed apartments (skip = true), fee is 100 EGP
+    let finalAmount = formAmount;
+    if (formSkip) {
+      if (formAmount === 200 || formAmount === 0 || !formAmount) {
+        finalAmount = 100;
+      }
+    }
+
     const updatedApts = monthData.apartments.map((a) => {
       if (a.id === editingApt.id) {
         return {
@@ -121,7 +130,7 @@ export const ResidentsTab: React.FC<ResidentsTabProps> = ({
           name: formName.trim(),
           phone: formPhone.trim(),
           paid: formPaid,
-          amount: formAmount,
+          amount: finalAmount,
           skip: formSkip,
         };
       }
@@ -216,7 +225,7 @@ export const ResidentsTab: React.FC<ResidentsTabProps> = ({
                 تحديد قيمة الصيانة الشهرية لجميع سكان البرج
               </h3>
               <p className="text-[11px] text-slate-400 mt-0.5">
-                يمكنك كتابة قيمة الصيانة هنا ثم الضغط على الزر لتطبيقها فوراً على كافة الشقق الـ 160.
+                يمكنك كتابة قيمة الصيانة هنا ثم الضغط على الزر لتطبيقها فوراً على الشقق المفتوحة، وتلقائياً 100 ج.م للشقق المغلقة.
               </p>
             </div>
           </div>

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Apartment, MonthData, ExtraMaintenance } from '../types';
 import { formatCurrency } from '../lib/buildingConfig';
 import { Printer, X, CheckCircle2, Building, ShieldCheck, Download, Share2, Image, MessageSquare } from 'lucide-react';
@@ -20,6 +20,13 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   const receiptRef = useRef<HTMLDivElement>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
+  useEffect(() => {
+    document.body.classList.add('printing-single-receipt');
+    return () => {
+      document.body.classList.remove('printing-single-receipt');
+    };
+  }, []);
+
   const extraAmount = activeExtraMaint && apartment.paidExtraMaint ? activeExtraMaint.amountPerApt : 0;
   const totalAmount = (apartment.amount || 0) + extraAmount;
   const issueDate = new Date().toLocaleDateString('ar-EG', {
@@ -32,21 +39,39 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
     window.print();
   };
 
-  // Convert receipt DOM node to PNG Blob / Data URL
+  // Convert receipt DOM node to PNG Blob safely without freezing
   const generateReceiptImage = async (): Promise<Blob | null> => {
     if (!receiptRef.current) return null;
+    setIsGeneratingImage(true);
+
     try {
-      setIsGeneratingImage(true);
-      const canvas = await html2canvas(receiptRef.current, {
-        scale: 2, // high quality
+      // Race html2canvas with a 3-second timeout guard to prevent app freezing
+      const canvasPromise = html2canvas(receiptRef.current, {
+        scale: 1.5, // optimal quality & fast render
         useCORS: true,
+        allowTaint: true,
+        logging: false,
         backgroundColor: '#ffffff',
       });
+
+      const timeoutPromise = new Promise<null>((resolve) => {
+        setTimeout(() => {
+          console.warn('Canvas image generation timed out');
+          resolve(null);
+        }, 3000);
+      });
+
+      const canvas = await Promise.race([canvasPromise, timeoutPromise]);
+
+      if (!canvas) {
+        return null;
+      }
+
       return new Promise((resolve) => {
         canvas.toBlob((blob) => resolve(blob), 'image/png');
       });
     } catch (err) {
-      console.error('Error generating image:', err);
+      console.error('Error generating receipt image:', err);
       return null;
     } finally {
       setIsGeneratingImage(false);
@@ -173,7 +198,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
         <div className="p-6 overflow-y-auto bg-slate-950 print:bg-white print:text-black print:p-8 print:w-full">
           <div
             ref={receiptRef}
-            className="bg-white text-black border-2 border-amber-600 print:border-slate-800 rounded-2xl p-6 space-y-5 relative shadow-xl print:shadow-none font-sans"
+            className="single-receipt-card-printable bg-white text-black border-2 border-amber-600 print:border-slate-800 rounded-2xl p-6 space-y-5 relative shadow-xl print:shadow-none font-sans"
           >
             {/* Watermark / Background stamp header */}
             <div className="flex justify-between items-start border-b-2 border-amber-600 print:border-slate-800 pb-4">

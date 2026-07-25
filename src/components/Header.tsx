@@ -1,7 +1,8 @@
 import React from 'react';
-import { Building2, Calendar, LayoutDashboard, Receipt, Moon, Sun, Users, RefreshCw } from 'lucide-react';
+import { Building2, Calendar, LayoutDashboard, Receipt, Moon, Sun, Users, RefreshCw, LogOut, ShieldCheck, User } from 'lucide-react';
 import { ARABIC_MONTHS } from '../lib/buildingConfig';
 import { TabType } from '../types';
+import { ActiveUser } from './LoginModal';
 
 interface HeaderProps {
   currentMonthKey: string;
@@ -12,6 +13,8 @@ interface HeaderProps {
   onToggleDarkMode: () => void;
   onOpenCollectionPanel: () => void;
   onOpenUsersModal: () => void;
+  currentUser: ActiveUser | null;
+  onLogout: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -23,6 +26,8 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleDarkMode,
   onOpenCollectionPanel,
   onOpenUsersModal,
+  currentUser,
+  onLogout,
 }) => {
   const [yearStr, monthStr] = currentMonthKey.split('-');
   const year = parseInt(yearStr) || new Date().getFullYear();
@@ -59,7 +64,7 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Controls: Month Selector, Collection Panel, Users & Theme */}
+          {/* Controls: Month Selector, User Status, Collection Panel & Logout */}
           <div className="flex flex-wrap items-center gap-2">
             {/* Month & Year Selection */}
             <div className="flex items-center gap-1.5 bg-slate-800/90 border border-slate-700/80 rounded-lg px-2.5 py-1 text-xs">
@@ -96,15 +101,38 @@ export const Header: React.FC<HeaderProps> = ({
               <span>لوحة التحصيل</span>
             </button>
 
-            {/* Quick Action: Data Entry Users */}
-            <button
-              onClick={onOpenUsersModal}
-              className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-amber-400 text-xs font-medium px-2.5 py-1.5 rounded-lg transition"
-              title="إدارة مدخلي البيانات"
-            >
-              <Users className="w-3.5 h-3.5 text-amber-400" />
-              <span className="hidden sm:inline">مدخلو البيانات</span>
-            </button>
+            {/* Admin Only: Users Management */}
+            {currentUser?.role === 'admin' && (
+              <button
+                onClick={onOpenUsersModal}
+                className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 hover:border-amber-400 text-xs font-medium px-2.5 py-1.5 rounded-lg transition"
+                title="إدارة مدخلي البيانات"
+              >
+                <Users className="w-3.5 h-3.5 text-amber-400" />
+                <span className="hidden sm:inline">مدخلو البيانات</span>
+              </button>
+            )}
+
+            {/* Active User Badge */}
+            {currentUser && (
+              <div
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${
+                  currentUser.role === 'admin'
+                    ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
+                    : 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+                }`}
+              >
+                {currentUser.role === 'admin' ? (
+                  <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                ) : (
+                  <User className="w-3.5 h-3.5 text-emerald-400" />
+                )}
+                <span>
+                  {currentUser.role === 'admin' ? 'المشرف: ' : 'المحصل: '}
+                  {currentUser.name}
+                </span>
+              </div>
+            )}
 
             {/* Theme Toggle */}
             <button
@@ -114,9 +142,22 @@ export const Header: React.FC<HeaderProps> = ({
             >
               {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
+
+            {/* Logout Button */}
+            {currentUser && (
+              <button
+                onClick={onLogout}
+                className="flex items-center gap-1 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-bold px-2.5 py-1.5 rounded-lg transition"
+                title="تسجيل الخروج والتبديل"
+              >
+                <LogOut className="w-3.5 h-3.5 text-rose-400" />
+                <span className="hidden md:inline">خروج</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
     </header>
   );
 };
+

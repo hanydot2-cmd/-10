@@ -5,20 +5,26 @@ import { TabType } from '../types';
 interface NavigationTabsProps {
   activeTab: TabType;
   onTabChange: (tab: TabType) => void;
+  userRole?: 'admin' | 'entry';
 }
 
-export const NavigationTabs: React.FC<NavigationTabsProps> = ({ activeTab, onTabChange }) => {
-  const tabs: { id: TabType; label: string; icon: React.ReactNode; isNew?: boolean }[] = [
-    { id: 'accounts', label: 'الحسابات', icon: <Wallet className="w-4 h-4" /> },
+export const NavigationTabs: React.FC<NavigationTabsProps> = ({ activeTab, onTabChange, userRole = 'admin' }) => {
+  const allTabs: { id: TabType; label: string; icon: React.ReactNode; isNew?: boolean }[] = [
+    { id: 'accounts', label: 'لوحة التحصيل والحسابات', icon: <Wallet className="w-4 h-4" /> },
+    { id: 'receipts', label: 'الإيصالات والوصلات', icon: <Receipt className="w-4 h-4" /> },
     { id: 'residents', label: 'السكان', icon: <Users className="w-4 h-4" /> },
     { id: 'extramaint', label: 'صيانة إضافية', icon: <Wrench className="w-4 h-4" /> },
     { id: 'reports', label: 'كتاب التقارير', icon: <FileText className="w-4 h-4" />, isNew: true },
     { id: 'datasheet', label: 'كشف البيانات (الشيت)', icon: <FileSpreadsheet className="w-4 h-4" /> },
-    { id: 'receipts', label: 'الإيصالات', icon: <Receipt className="w-4 h-4" /> },
     { id: 'debts', label: 'المديونيات', icon: <FileSpreadsheet className="w-4 h-4" /> },
     { id: 'dashboard', label: 'لوحة البيانات', icon: <LayoutDashboard className="w-4 h-4" /> },
     { id: 'settings', label: 'الإعدادات', icon: <Settings className="w-4 h-4" /> },
   ];
+
+  // Collector (entry) sees ONLY Collection Dashboard & Receipts
+  const tabs = userRole === 'entry' 
+    ? allTabs.filter(t => t.id === 'accounts' || t.id === 'receipts') 
+    : allTabs;
 
   return (
     <nav className="bg-slate-900/90 border-b border-slate-800 backdrop-blur sticky top-[61px] z-20 shadow-sm hidden md:block">

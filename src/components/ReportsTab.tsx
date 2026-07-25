@@ -81,7 +81,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ monthData, activeExtraMa
       )}
 
       {/* Header Banner */}
-      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-wrap items-center justify-between gap-4">
+      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-wrap items-center justify-between gap-4 print:hidden">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-amber-500/20 text-amber-400 rounded-xl border border-amber-500/30">
             <FileText className="w-6 h-6" />
@@ -94,19 +94,21 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ monthData, activeExtraMa
               </span>
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              استخراج طباعة كافة التقارير وكشوف السداد وغير المسددين مع الختم البيضاوي المعتمد للبرج
+              استخراج طباعة كافة التقارير وكشوف السداد وغير المسددين مستخرجة كنص نظام رسمي مطبوع مع الختم البيضاوي المعتمد
             </p>
           </div>
         </div>
 
-        {/* Global Print Action Button */}
-        <button
-          onClick={handlePrintReport}
-          className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 text-slate-950 font-black px-4 py-2 rounded-xl text-xs shadow transition active:scale-95"
-        >
-          <Printer className="w-4 h-4" />
-          <span>طباعة التقرير الحالي / PDF</span>
-        </button>
+        {/* Global Print Action Buttons */}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={handlePrintReport}
+            className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 text-slate-950 font-black px-4 py-2 rounded-xl text-xs shadow transition active:scale-95"
+          >
+            <Printer className="w-4 h-4" />
+            <span>تصدير PDF / طباعة التقرير المطبوع 📄</span>
+          </button>
+        </div>
       </div>
 
       {/* Report Selector Tabs */}
@@ -189,7 +191,19 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ monthData, activeExtraMa
 
           {/* Printable Report Document Card */}
           <div className="bg-slate-900 border-2 border-slate-800 rounded-2xl p-6 shadow-2xl print:bg-white print:text-black print:border-black print:p-6 print:shadow-none space-y-6">
-            {/* Header Document Section */}
+            {/* Formal Print Header Block (Visible strictly on print / PDF export) */}
+            <div className="hidden print:block border-b-2 border-slate-900 pb-3 mb-4 text-center">
+              <h2 className="text-sm font-bold text-slate-800">جمهورية مصر العربية — اتحاد الملاك بالمحافظة</h2>
+              <h1 className="text-xl font-black text-black mt-0.5">إدارة أبراج المعتز لله — برج 10</h1>
+              <p className="text-xs font-bold text-slate-700 mt-0.5">كشف التقرير المالي والإحصائي الرسمي والختاميات المالية</p>
+              <div className="flex justify-between items-center text-[10px] text-slate-800 font-mono mt-2 pt-2 border-t border-slate-400">
+                <span>رقم مرجع التقرير: #BMU10-FIN-{monthData.key.replace('-', '')}</span>
+                <span>شهر: {monthData.monthName} {monthData.year}</span>
+                <span>تاريخ التصدير والطباعة: {new Date().toLocaleDateString('ar-EG')}</span>
+              </div>
+            </div>
+
+            {/* Header Document Section (Screen View) */}
             <div className="flex justify-between items-start border-b border-slate-800 print:border-black pb-4">
               <div>
                 <h3 className="font-black text-amber-400 print:text-black text-lg flex items-center gap-2">
@@ -372,6 +386,18 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ monthData, activeExtraMa
 
           {/* Unpaid List Document */}
           <div className="bg-slate-900 border-2 border-slate-800 rounded-2xl p-6 shadow-xl print:bg-white print:text-black print:border-black print:p-6 space-y-4">
+            {/* Formal Print Header Block (Visible strictly on print / PDF export) */}
+            <div className="hidden print:block border-b-2 border-slate-900 pb-3 mb-4 text-center">
+              <h2 className="text-sm font-bold text-slate-800">جمهورية مصر العربية — اتحاد الملاك بالمحافظة</h2>
+              <h1 className="text-xl font-black text-black mt-0.5">إدارة أبراج المعتز لله — برج 10</h1>
+              <p className="text-xs font-bold text-slate-700 mt-0.5">كشف رسمي حصري بالمشتركين غير المسددين لقيمة الصيانة الشهري</p>
+              <div className="flex justify-between items-center text-[10px] text-slate-800 font-mono mt-2 pt-2 border-t border-slate-400">
+                <span>رقم مرجع الكشف: #BMU10-UNPAID-{monthData.key.replace('-', '')}</span>
+                <span>شهر: {monthData.monthName} {monthData.year}</span>
+                <span>تاريخ التصدير والطباعة: {new Date().toLocaleDateString('ar-EG')}</span>
+              </div>
+            </div>
+
             <div className="flex justify-between items-start border-b border-slate-800 print:border-black pb-3">
               <div>
                 <h3 className="font-black text-rose-400 print:text-black text-base flex items-center gap-2">
