@@ -25,11 +25,11 @@ export const DataSheetTab: React.FC<DataSheetTabProps> = ({
   const paidApartments = validApartments.filter((a) => a.paid);
   const unpaidApartments = validApartments.filter((a) => !a.paid);
 
-  const totalPaidCollected = paidApartments.reduce((s, a) => s + a.amount, 0);
+  const totalPaidCollected = paidApartments.reduce((s, a) => s + (a.skip ? 100 : (a.amount || 0)), 0);
   const extraAmt = activeExtraMaint ? activeExtraMaint.amountPerApt : 0;
 
   const totalUnpaidDue = unpaidApartments.reduce((s, a) => {
-    let due = a.amount;
+    let due = a.skip ? 100 : (a.amount || 0);
     if (extraAmt > 0 && !a.paidExtraMaint) due += extraAmt;
     return s + due;
   }, 0);
@@ -248,7 +248,7 @@ export const DataSheetTab: React.FC<DataSheetTabProps> = ({
               لم يقم أي ساكن بالسداد بعد لهذا الشهر.
             </div>
           ) : (
-            <div className="overflow-x-auto max-h-96 overflow-y-auto">
+            <div className="overflow-x-auto max-h-96 print:max-h-none overflow-y-auto print:overflow-visible">
               <table className="w-full text-right text-xs">
                 <thead className="sticky top-0 bg-slate-950 text-slate-400 border-b border-slate-800 font-bold">
                   <tr>
@@ -265,7 +265,7 @@ export const DataSheetTab: React.FC<DataSheetTabProps> = ({
                       <td className="p-3 font-black text-amber-400">شقة {apt.aptNumber}</td>
                       <td className="p-3 text-slate-300">الدور {apt.floor}</td>
                       <td className="p-3 font-bold text-slate-100">{apt.name}</td>
-                      <td className="p-3 font-black text-emerald-400">{formatCurrency(apt.amount)}</td>
+                      <td className="p-3 font-black text-emerald-400">{formatCurrency(apt.skip ? 100 : (apt.amount || 0))}</td>
                       <td className="p-3">
                         <span className="inline-flex items-center gap-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-full text-[11px] font-bold">
                           <CheckCircle2 className="w-3 h-3 text-emerald-400" />
@@ -297,7 +297,7 @@ export const DataSheetTab: React.FC<DataSheetTabProps> = ({
               🎉 ممتاز! جميع السكان سددوا اشتراك الصيانة لهذا الشهر.
             </div>
           ) : (
-            <div className="overflow-x-auto max-h-96 overflow-y-auto">
+            <div className="overflow-x-auto max-h-96 print:max-h-none overflow-y-auto print:overflow-visible">
               <table className="w-full text-right text-xs">
                 <thead className="sticky top-0 bg-slate-950 text-slate-400 border-b border-slate-800 font-bold">
                   <tr>
@@ -313,13 +313,14 @@ export const DataSheetTab: React.FC<DataSheetTabProps> = ({
                 <tbody className="divide-y divide-slate-800/60">
                   {unpaidApartments.filter(matchesSearch).map((apt) => {
                     const extraDue = extraAmt > 0 && !apt.paidExtraMaint ? extraAmt : 0;
-                    const totalDue = apt.amount + extraDue;
+                    const baseAmt = apt.skip ? 100 : (apt.amount || 0);
+                    const totalDue = baseAmt + extraDue;
                     return (
                       <tr key={apt.id} className="hover:bg-slate-800/40 transition">
                         <td className="p-3 font-black text-amber-400">شقة {apt.aptNumber}</td>
                         <td className="p-3 text-slate-300">الدور {apt.floor}</td>
                         <td className="p-3 font-bold text-slate-100">{apt.name}</td>
-                        <td className="p-3 text-slate-200">{formatCurrency(apt.amount)}</td>
+                        <td className="p-3 text-slate-200">{formatCurrency(baseAmt)}</td>
                         {extraAmt > 0 && (
                           <td className="p-3 text-amber-400">
                             {extraDue > 0 ? formatCurrency(extraDue) : 'مسددة'}

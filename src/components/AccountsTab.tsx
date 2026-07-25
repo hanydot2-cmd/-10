@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { MonthData, ExtraMaintenance, Expense } from '../types';
 import { formatCurrency, formatNumber } from '../lib/buildingConfig';
+import { calculateCollectedAmount } from '../lib/storage';
 import { Plus, Trash2, Edit2, CheckCircle2, ArrowRightLeft, DollarSign, Wallet, CreditCard, TrendingUp } from 'lucide-react';
 
 interface AccountsTabProps {
@@ -23,18 +24,8 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
   const [isEditingCol, setIsEditingCol] = useState(false);
   const [tempCol, setTempCol] = useState('');
 
-  // Auto-calculated collected total from residents
-  const autoResidentCol = monthData.apartments.reduce((acc, apt) => {
-    let sum = 0;
-    if (apt.paid) sum += apt.amount || 0;
-    if (apt.paidExtraMaint && activeExtraMaint) sum += activeExtraMaint.amountPerApt || 0;
-    return acc + sum;
-  }, 0);
-
-  // Requirement #5: Total collected amount is either manually edited baseline + colExtraManual + subsequent auto additions, or purely autoResidentCol
-  const totalCollected = monthData.manualCollectedEdited
-    ? monthData.collectedAmount
-    : autoResidentCol + (monthData.colExtraManual || 0);
+  // Accurately calculated collected total
+  const totalCollected = calculateCollectedAmount(monthData, activeExtraMaint);
 
   const totalExpenses = monthData.expenses.reduce((s, e) => s + e.amount, 0);
   const totalAvailable = (monthData.prevBalance || 0) + totalCollected;

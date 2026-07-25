@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { MonthData, ExtraMaintenance, Apartment, Expense } from '../types';
 import { formatCurrency } from '../lib/buildingConfig';
+import { calculateCollectedAmount } from '../lib/storage';
 import {
   FileText,
   Printer,
@@ -44,16 +45,10 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ monthData, activeExtraMa
   const extraMaintUnpaidApts = openApartments.filter((apt) => !apt.paidExtraMaint);
 
   // Calculate Financials
-  const baseCollected = openApartments.reduce(
-    (acc, apt) => acc + (apt.paid ? apt.amount || 0 : 0),
-    0
-  );
   const extraCollected = activeExtraMaint
     ? extraMaintPaidApts.length * activeExtraMaint.amountPerApt
     : 0;
-  const totalCollectedActual = monthData.manualCollectedEdited
-    ? monthData.collectedAmount
-    : baseCollected + extraCollected;
+  const totalCollectedActual = calculateCollectedAmount(monthData, activeExtraMaint);
 
   const totalExpenses = monthData.expenses.reduce((acc, exp) => acc + (exp.amount || 0), 0);
   const netBalance = monthData.prevBalance + totalCollectedActual - totalExpenses;

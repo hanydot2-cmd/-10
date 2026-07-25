@@ -60,15 +60,87 @@ export function saveMasterResidents(apts: Apartment[]) {
   broadcastSync('MASTER_RESIDENTS_UPDATED');
 }
 
+// Helper to dynamically calculate previous balance from previous month
+export function getDynamicPrevBalance(monthKey: string, visitedKeys = new Set<string>()): number {
+  if (visitedKeys.has(monthKey)) return 0;
+  visitedKeys.add(monthKey);
+
+  const prevMonthKey = getPreviousMonthKey(monthKey);
+  const prevDataRaw = localStorage.getItem(STORAGE_KEYS.MONTHS_DATA + prevMonthKey);
+  if (!prevDataRaw) return 0;
+
+  try {
+    const prevData: MonthData = JSON.parse(prevDataRaw);
+    
+    // Calculate previous month's collected amount
+    const prevActiveExtra = getActiveExtraMaintenance(prevMonthKey);
+    const prevCollected = calculateCollectedAmount(prevData, prevActiveExtra);
+    
+    // Previous month's prev balance (recursively compute if not manually edited)
+    let prevBalance = prevData.prevBalance || 0;
+    if (!prevData.manualPrevBalanceEdited) {
+      prevBalance = getDynamicPrevBalance(prevMonthKey, visitedKeys);
+    }
+
+    // Previous month's total expenses
+    const prevExpenses = (prevData.expenses || []).reduce((s, e) => s + (e.amount || 0), 0);
+
+    // Remaining balance at end of previous month
+    return Math.max(0, prevCollected + prevBalance - prevExpenses);
+  } catch (e) {
+    return 0;
+  }
+}
+
+// Helper to sanitize and synchronize month data state dynamically
+export function syncAndSanitizeMonthData(data: MonthData): MonthData {
+  if (!data) return data;
+
+  const activeExtra = getActiveExtraMaintenance(data.key);
+  data.collectedAmount = calculateCollectedAmount(data, activeExtra);
+
+  if (!data.manualPrevBalanceEdited) {
+    data.prevBalance = getDynamicPrevBalance(data.key);
+  }
+
+  return data;
+}
+
+// Helper to accurately calculate total collected amount for a month
+export function calculateCollectedAmount(monthData: MonthData, activeExtraMaint?: ExtraMaintenance | null): number {
+  if (!monthData || !monthData.apartments) return 0;
+
+  const autoSum = monthData.apartments.reduce((acc, apt) => {
+    let sum = 0;
+    if (apt.paid) {
+      sum += apt.skip ? 100 : (apt.amount || 0);
+    }
+    if (apt.paidExtraMaint && activeExtraMaint) {
+      sum += activeExtraMaint.amountPerApt || 0;
+    }
+    return acc + sum;
+  }, 0);
+
+  // If no apartments are marked as paid, collected amount MUST reset to 0 (+ manual extra addition if any)
+  if (autoSum === 0) {
+    return monthData.colExtraManual || 0;
+  }
+
+  if (monthData.manualCollectedEdited && typeof monthData.collectedAmount === 'number') {
+    return monthData.collectedAmount;
+  }
+
+  return autoSum + (monthData.colExtraManual || 0);
+}
+
 // Get or initialize Month Data
 export function getMonthData(key: string): MonthData {
   const raw = localStorage.getItem(STORAGE_KEYS.MONTHS_DATA + key);
   if (raw) {
     try {
       const parsed: MonthData = JSON.parse(raw);
-      // Ensure apartment array length is exactly 160 (12 floors, 1..11 with 14 apts, 12th with 6 apts)
       if (parsed.apartments && parsed.apartments.length === 160) {
-        return parsed;
+        return syncAndSanitizeMonthData(parsed);
       }
     } catch (e) {}
   }
@@ -79,19 +151,9 @@ export function getMonthData(key: string): MonthData {
   const monthIdx = (parseInt(mStr) || 1) - 1;
   const monthName = ARABIC_MONTHS[monthIdx] || 'يناير';
 
-  // Calculate previous balance from previous month
   const prevMonthKey = getPreviousMonthKey(key);
   const prevDataRaw = localStorage.getItem(STORAGE_KEYS.MONTHS_DATA + prevMonthKey);
-  let autoPrevBalance = 0;
-  if (prevDataRaw) {
-    try {
-      const prevData: MonthData = JSON.parse(prevDataRaw);
-      const totalExp = prevData.expenses.reduce((s, e) => s + e.amount, 0);
-      autoPrevBalance = Math.max(0, prevData.collectedAmount + prevData.prevBalance - totalExp);
-    } catch (e) {}
-  }
 
-  // Inherit residents details from master or previous month
   let initialApts = getMasterResidents();
   if (prevDataRaw) {
     try {
@@ -110,29 +172,61 @@ export function getMonthData(key: string): MonthData {
     key,
     monthName,
     year,
-    prevBalance: autoPrevBalance,
+    prevBalance: getDynamicPrevBalance(key),
     collectedAmount: 0,
     expenses: [],
     apartments: initialApts.map(a => ({ ...a, paid: false, paidExtraMaint: false }))
   };
 
-  localStorage.setItem(STORAGE_KEYS.MONTHS_DATA + key, JSON.stringify(newMonth));
-  return newMonth;
+  const sanitized = syncAndSanitizeMonthData(newMonth);
+  localStorage.setItem(STORAGE_KEYS.MONTHS_DATA + key, JSON.stringify(sanitized));
+  return sanitized;
 }
 
 export function saveMonthData(data: MonthData) {
-  localStorage.setItem(STORAGE_KEYS.MONTHS_DATA + data.key, JSON.stringify(data));
-  broadcastSync('MONTH_DATA_UPDATED', data.key);
+  const sanitized = syncAndSanitizeMonthData(data);
+  localStorage.setItem(STORAGE_KEYS.MONTHS_DATA + sanitized.key, JSON.stringify(sanitized));
+
+  // Cascade previous balance update to subsequent month if it exists in storage
+  const nextMonthKey = getNextMonthKey(sanitized.key);
+  const nextDataRaw = localStorage.getItem(STORAGE_KEYS.MONTHS_DATA + nextMonthKey);
+  if (nextDataRaw) {
+    try {
+      const nextData: MonthData = JSON.parse(nextDataRaw);
+      if (!nextData.manualPrevBalanceEdited) {
+        const totalExp = (sanitized.expenses || []).reduce((s, e) => s + (e.amount || 0), 0);
+        const newNextPrevBalance = Math.max(0, sanitized.collectedAmount + (sanitized.prevBalance || 0) - totalExp);
+        if (nextData.prevBalance !== newNextPrevBalance) {
+          nextData.prevBalance = newNextPrevBalance;
+          saveMonthData(nextData);
+        }
+      }
+    } catch (e) {}
+  }
+
+  broadcastSync('MONTH_DATA_UPDATED', sanitized.key);
 }
 
 export function getPreviousMonthKey(currentKey: string): string {
   const [yStr, mStr] = currentKey.split('-');
-  let y = parseInt(yStr);
-  let m = parseInt(mStr);
+  let y = parseInt(yStr) || new Date().getFullYear();
+  let m = parseInt(mStr) || 1;
   m -= 1;
   if (m === 0) {
     m = 12;
     y -= 1;
+  }
+  return `${y}-${String(m).padStart(2, '0')}`;
+}
+
+export function getNextMonthKey(currentKey: string): string {
+  const [yStr, mStr] = currentKey.split('-');
+  let y = parseInt(yStr) || new Date().getFullYear();
+  let m = parseInt(mStr) || 1;
+  m += 1;
+  if (m === 13) {
+    m = 1;
+    y += 1;
   }
   return `${y}-${String(m).padStart(2, '0')}`;
 }

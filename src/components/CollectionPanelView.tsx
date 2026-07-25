@@ -33,8 +33,8 @@ export const CollectionPanelView: React.FC<CollectionPanelViewProps> = ({
     const targetApt = monthData.apartments.find((a) => a.id === aptId);
     if (!targetApt) return;
 
-    // Prevent re-adding if already paid
-    if (isChecked && targetApt[field]) {
+    // Prevent re-triggering if already in requested state
+    if (targetApt[field] === isChecked) {
       return;
     }
 
@@ -45,20 +45,9 @@ export const CollectionPanelView: React.FC<CollectionPanelViewProps> = ({
       return a;
     });
 
-    let newCollected = monthData.collectedAmount;
-
-    // Calculate added value to register directly in collected total
-    if (isChecked) {
-      if (field === 'paid') {
-        newCollected += targetApt.amount || 0;
-      } else if (field === 'paidExtraMaint' && activeExtraMaint) {
-        newCollected += activeExtraMaint.amountPerApt || 0;
-      }
-    }
-
     onUpdateMonthData({
       ...monthData,
-      collectedAmount: newCollected,
+      manualCollectedEdited: false,
       apartments: updatedApts,
     });
   };
@@ -137,7 +126,7 @@ export const CollectionPanelView: React.FC<CollectionPanelViewProps> = ({
                     {apt.name || 'بدون اسم'}
                   </div>
                   <div className="text-[11px] text-slate-400 mt-0.5">
-                    المبلغ: {formatCurrency(apt.amount)}
+                    المبلغ: {formatCurrency(apt.skip ? 100 : (apt.amount || 0))} {apt.skip ? '(شقة مغلقة)' : ''}
                   </div>
                 </div>
 

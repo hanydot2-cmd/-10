@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { MonthData, ExtraMaintenance, DebtItem } from '../types';
 import { formatCurrency } from '../lib/buildingConfig';
+import { calculateCollectedAmount } from '../lib/storage';
 import { LayoutDashboard, CheckCircle2, XCircle, Search, Wallet, TrendingUp, DollarSign, Printer, MessageSquare, Share2, Copy, Check } from 'lucide-react';
 
 interface DataDashboardViewProps {
@@ -45,15 +46,7 @@ export const DataDashboardView: React.FC<DataDashboardViewProps> = ({
 
   // Calculate totals
   const totalExpenses = monthData.expenses.reduce((s, e) => s + e.amount, 0);
-  const autoResidentCol = monthData.apartments.reduce((acc, apt) => {
-    let sum = 0;
-    if (apt.paid) sum += apt.amount || 0;
-    if (apt.paidExtraMaint && activeExtraMaint) sum += activeExtraMaint.amountPerApt || 0;
-    return acc + sum;
-  }, 0);
-  const totalCollected = monthData.manualCollectedEdited
-    ? monthData.collectedAmount
-    : autoResidentCol + (monthData.colExtraManual || 0);
+  const totalCollected = calculateCollectedAmount(monthData, activeExtraMaint);
 
   const totalAvailable = (monthData.prevBalance || 0) + totalCollected;
   const remainingBalance = totalAvailable - totalExpenses;
@@ -184,7 +177,7 @@ _تم التحديث الآلي عبر نظام إدارة حسابات برج �
             </span>
           </div>
 
-          <div className="max-h-[500px] overflow-y-auto">
+          <div className="max-h-[500px] print:max-h-none overflow-y-auto print:overflow-visible">
             <table className="w-full text-right text-xs">
               <thead className="bg-slate-800/90 text-emerald-400 font-bold border-b border-slate-800 sticky top-0">
                 <tr>
@@ -210,11 +203,11 @@ _تم التحديث الآلي عبر نظام إدارة حسابات برج �
                           شقة {apt.aptNumber} <span className="text-slate-400 text-[10px]">(دور {apt.floor})</span>
                         </div>
                         <div className="text-slate-200 text-[11px]">
-                          {apt.name || 'بدون اسم'}
+                          {apt.name || 'بدون اسم'} {apt.skip && <span className="text-amber-400 text-[10px]">(مغلقة)</span>}
                         </div>
                       </td>
                       <td className="p-2.5 text-center font-bold text-emerald-400 dir-ltr">
-                        {formatCurrency(apt.amount)}
+                        {formatCurrency(apt.skip ? 100 : (apt.amount || 0))}
                       </td>
                       <td className="p-2.5 text-center">
                         {apt.paidExtraMaint ? (
@@ -243,7 +236,7 @@ _تم التحديث الآلي عبر نظام إدارة حسابات برج �
             </span>
           </div>
 
-          <div className="max-h-[500px] overflow-y-auto">
+          <div className="max-h-[500px] print:max-h-none overflow-y-auto print:overflow-visible">
             <table className="w-full text-right text-xs">
               <thead className="bg-slate-800/90 text-rose-400 font-bold border-b border-slate-800 sticky top-0">
                 <tr>
@@ -273,7 +266,7 @@ _تم التحديث الآلي عبر نظام إدارة حسابات برج �
                         </div>
                       </td>
                       <td className="p-2.5 text-center font-bold text-rose-400 dir-ltr">
-                        {formatCurrency(apt.amount)}
+                        {formatCurrency(apt.skip ? 100 : (apt.amount || 0))}
                       </td>
                       <td className="p-2.5 text-center font-mono text-slate-300 dir-ltr text-right">
                         {apt.phone || <span className="text-slate-600">—</span>}

@@ -70,7 +70,7 @@ export const ResidentsTab: React.FC<ResidentsTabProps> = ({
     if (!monthData.manualCollectedEdited) {
       newCollected = updatedApts.reduce((acc, apt) => {
         let sum = 0;
-        if (apt.paid) sum += apt.amount || 0;
+        if (apt.paid) sum += apt.skip ? 100 : (apt.amount || 0);
         if (apt.paidExtraMaint && activeExtraMaint) sum += activeExtraMaint.amountPerApt || 0;
         return acc + sum;
       }, 0);
@@ -78,6 +78,7 @@ export const ResidentsTab: React.FC<ResidentsTabProps> = ({
 
     onUpdateMonthData({
       ...monthData,
+      manualCollectedEdited: false,
       collectedAmount: newCollected,
       apartments: updatedApts,
     });
@@ -147,6 +148,7 @@ export const ResidentsTab: React.FC<ResidentsTabProps> = ({
 
     const updatedMonthData: MonthData = {
       ...monthData,
+      manualCollectedEdited: false,
       collectedAmount: newCollected,
       colExtraManual,
       apartments: updatedApts,
@@ -178,14 +180,9 @@ export const ResidentsTab: React.FC<ResidentsTabProps> = ({
       return a;
     });
 
-    let newCollected = monthData.collectedAmount;
-    if (newPaidState && monthData.manualCollectedEdited) {
-      newCollected += targetApt.amount || 0;
-    }
-
     onUpdateMonthData({
       ...monthData,
-      collectedAmount: newCollected,
+      manualCollectedEdited: false,
       apartments: updatedApts,
     });
   };

@@ -5,6 +5,8 @@ import {
   setCurrentMonthKey,
   getMonthData,
   saveMonthData,
+  syncAndSanitizeMonthData,
+  getNextMonthKey,
   getExtraMaintenances,
   saveExtraMaintenances,
   getActiveExtraMaintenance,
@@ -154,8 +156,9 @@ export default function App() {
     // 1. Month Data Listener
     const unsubMonth = listenToMonthData(currentMonthKey, (remoteData) => {
       if (remoteData) {
-        setMonthDataState(remoteData);
-        saveMonthData(remoteData);
+        const sanitized = syncAndSanitizeMonthData(remoteData);
+        setMonthDataState(sanitized);
+        saveMonthData(sanitized);
       } else {
         // First initialization to Firebase
         const local = getMonthData(currentMonthKey);
@@ -203,12 +206,16 @@ export default function App() {
     };
   }, [currentMonthKey]);
 
-  // Handle Month Change
+  // Handle Month Change with immediate dynamic synchronization
   const handleMonthChange = (newKey: string) => {
     if (newKey === currentMonthKey) return;
     transferUnpaidToDebts(currentMonthKey);
     setCurrentMonthKey(newKey);
     setMonthKey(newKey);
+
+    // Dynamic, immediate state synchronization when switching months
+    const targetData = getMonthData(newKey);
+    setMonthDataState(targetData);
   };
 
   // Helper to trigger password modal for protected actions
@@ -219,9 +226,26 @@ export default function App() {
 
   // Month Data Update
   const handleUpdateMonthData = (updated: MonthData) => {
-    setMonthDataState(updated);
-    saveMonthData(updated);
-    saveMonthDataFirebase(updated);
+    const sanitized = syncAndSanitizeMonthData(updated);
+    setMonthDataState(sanitized);
+    saveMonthData(sanitized);
+    saveMonthDataFirebase(sanitized);
+
+    // Sync subsequent months to Firebase so cloud storage stays 100% updated immediately
+    let currentKey = sanitized.key;
+    for (let i = 0; i < 12; i++) {
+      const nextKey = getNextMonthKey(currentKey);
+      const raw = localStorage.getItem('bmu10_month_' + nextKey);
+      if (!raw) break;
+      try {
+        const nextData: MonthData = JSON.parse(raw);
+        const nextSanitized = syncAndSanitizeMonthData(nextData);
+        saveMonthDataFirebase(nextSanitized);
+        currentKey = nextKey;
+      } catch (e) {
+        break;
+      }
+    }
   };
 
   // Master Residents Update

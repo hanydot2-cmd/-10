@@ -333,7 +333,7 @@ export const ReceiptsTab: React.FC<ReceiptsTabProps> = ({ monthData, activeExtra
                     <div className="grid grid-cols-12 gap-1.5 my-1 text-[10px] items-center">
                       <div className="col-span-5 bg-slate-50 p-1 rounded border border-slate-300">
                         <span className="text-[8px] text-slate-600 block font-bold">اسم الساكن:</span>
-                        <span className="font-bold text-black truncate block">{apt.name || 'غير محدد'}</span>
+                        <span className="font-bold text-black break-words whitespace-normal leading-tight block">{apt.name || 'غير محدد'}</span>
                       </div>
 
                       <div className="col-span-7 bg-slate-50 p-1 rounded border border-slate-300 grid grid-cols-3 text-center items-center gap-0.5">
@@ -385,6 +385,15 @@ export const ReceiptsTab: React.FC<ReceiptsTabProps> = ({ monthData, activeExtra
           ))
         )}
       </div>
+      {/* SINGLE RECEIPT MODAL */}
+      {selectedApt && (
+        <ReceiptModal
+          apartment={selectedApt}
+          monthData={monthData}
+          activeExtraMaint={activeExtraMaint}
+          onClose={() => setSelectedApt(null)}
+        />
+      )}
     </div>
   );
 };

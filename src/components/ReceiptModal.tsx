@@ -28,7 +28,8 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   }, []);
 
   const extraAmount = activeExtraMaint && apartment.paidExtraMaint ? activeExtraMaint.amountPerApt : 0;
-  const totalAmount = (apartment.amount || 0) + extraAmount;
+  const baseAmount = apartment.skip ? 100 : (apartment.amount || 0);
+  const totalAmount = baseAmount + extraAmount;
   const issueDate = new Date().toLocaleDateString('ar-EG', {
     year: 'numeric',
     month: 'long',
@@ -209,7 +210,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             <div className="grid grid-cols-12 gap-2 my-2 text-xs items-center">
               <div className="col-span-5 bg-slate-50 p-2.5 rounded-lg border border-slate-300 shadow-xs">
                 <span className="text-[10px] text-slate-600 block font-bold mb-0.5">اسم الساكن:</span>
-                <span className="font-bold text-black text-sm block truncate">
+                <span className="font-bold text-black text-xs block break-words whitespace-normal leading-snug min-h-[1.5rem]">
                   {apartment.name || 'غير محدد'}
                 </span>
               </div>
