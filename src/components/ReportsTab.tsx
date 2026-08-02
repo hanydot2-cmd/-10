@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { MonthData, ExtraMaintenance, Apartment, Expense } from '../types';
 import { formatCurrency } from '../lib/buildingConfig';
 import { calculateCollectedAmount } from '../lib/storage';
+import { toBlob } from 'html-to-image';
 import {
   FileText,
   Printer,
@@ -20,6 +21,7 @@ import {
   AlertTriangle,
   Calendar,
   ShieldCheck,
+  Image,
 } from 'lucide-react';
 import { ReceiptModal } from './ReceiptModal';
 
@@ -29,9 +31,11 @@ interface ReportsTabProps {
 }
 
 export const ReportsTab: React.FC<ReportsTabProps> = ({ monthData, activeExtraMaint }) => {
-  const [activeSubReport, setActiveSubReport] = useState<'financial' | 'unpaid' | 'extraMaint'>('financial');
+  const [activeSubReport, setActiveSubReport] = useState<'financial' | 'paid' | 'unpaid' | 'extraMaint'>('financial');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAptForReceipt, setSelectedAptForReceipt] = useState<Apartment | null>(null);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const reportRef = useRef<HTMLDivElement>(null);
 
   // Filter open apartments (skip = false)
   const openApartments = monthData.apartments.filter((apt) => !apt.skip);
@@ -53,14 +57,40 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ monthData, activeExtraMa
   const totalExpenses = monthData.expenses.reduce((acc, exp) => acc + (exp.amount || 0), 0);
   const netBalance = monthData.prevBalance + totalCollectedActual - totalExpenses;
 
-  // Unpaid Totals
+  // Unpaid/Paid Totals
   const totalUnpaidAmount = unpaidApartments.reduce((acc, apt) => acc + (apt.amount || 0), 0);
+  const totalPaidAmount = paidApartments.reduce((acc, apt) => acc + (apt.amount || 0), 0);
   const extraMaintUnpaidTotal = activeExtraMaint
     ? extraMaintUnpaidApts.length * activeExtraMaint.amountPerApt
     : 0;
 
   const handlePrintReport = () => {
     window.print();
+  };
+
+  const handleDownloadReportImage = async () => {
+    if (!reportRef.current) return;
+    setIsGeneratingImage(true);
+    try {
+      const blob = await toBlob(reportRef.current, {
+        pixelRatio: 2,
+        backgroundColor: '#0f172a',
+        cacheBust: true,
+      });
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `كشف_${activeSubReport}_${monthData.key}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error generating report image:', err);
+    } finally {
+      setIsGeneratingImage(false);
+    }
   };
 
   return (
@@ -103,11 +133,20 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ monthData, activeExtraMa
             <Printer className="w-4 h-4" />
             <span>تصدير PDF / طباعة التقرير المطبوع 📄</span>
           </button>
+
+          <button
+            onClick={handleDownloadReportImage}
+            disabled={isGeneratingImage}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-black px-4 py-2 rounded-xl text-xs shadow transition active:scale-95 disabled:opacity-50"
+          >
+            <Image className="w-4 h-4" />
+            <span>{isGeneratingImage ? 'جاري تجهيز الصورة...' : 'حفظ الكشف كصورة (PNG 🖼️)'}</span>
+          </button>
         </div>
       </div>
 
       {/* Report Selector Tabs */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-slate-900/70 p-1.5 rounded-xl border border-slate-800">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 bg-slate-900/70 p-1.5 rounded-xl border border-slate-800 print:hidden">
         <button
           onClick={() => setActiveSubReport('financial')}
           className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs font-bold transition ${
@@ -121,6 +160,18 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ monthData, activeExtraMa
         </button>
 
         <button
+          onClick={() => setActiveSubReport('paid')}
+          className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs font-bold transition relative ${
+            activeSubReport === 'paid'
+              ? 'bg-amber-500 text-slate-950 shadow-md'
+              : 'text-slate-300 hover:bg-slate-800'
+          }`}
+        >
+          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+          <span>2. كشف المسددين للصيانة ({paidApartments.length})</span>
+        </button>
+
+        <button
           onClick={() => setActiveSubReport('unpaid')}
           className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg text-xs font-bold transition relative ${
             activeSubReport === 'unpaid'
@@ -129,7 +180,7 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ monthData, activeExtraMa
           }`}
         >
           <AlertTriangle className="w-4 h-4 text-rose-400" />
-          <span>2. تقرير غير المسددين للصيانة ({unpaidApartments.length})</span>
+          <span>3. كشف غير المسددين للصيانة ({unpaidApartments.length})</span>
           {unpaidApartments.length > 0 && (
             <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
           )}
@@ -144,13 +195,15 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ monthData, activeExtraMa
           }`}
         >
           <FileCheck className="w-4 h-4 text-purple-400" />
-          <span>3. تقرير الصيانة الإضافية</span>
+          <span>4. تقرير الصيانة الإضافية</span>
         </button>
       </div>
 
-      {/* ======================================================== */}
-      {/* SUB REPORT 1: FULL FINANCIALS (تقرير حسابات العمارة كلها) */}
-      {/* ======================================================== */}
+      {/* Printable / Downloadable Report Container */}
+      <div ref={reportRef} className="space-y-6 print:space-y-4 bg-slate-950 print:bg-white p-4 print:p-0 rounded-2xl border border-slate-900 print:border-none">
+        {/* ======================================================== */}
+        {/* SUB REPORT 1: FULL FINANCIALS (تقرير حسابات العمارة كلها) */}
+        {/* ======================================================== */}
       {activeSubReport === 'financial' && (
         <div className="space-y-6 print:space-y-4">
           {/* Summary KPIs */}
@@ -336,7 +389,166 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ monthData, activeExtraMa
       )}
 
       {/* ======================================================== */}
-      {/* SUB REPORT 2: UNPAID MONTHLY MAINTENANCE (غير المسددين) */}
+      {/* SUB REPORT 2: PAID MONTHLY MAINTENANCE (كشف المسددين للصيانة) */}
+      {/* ======================================================== */}
+      {activeSubReport === 'paid' && (
+        <div className="space-y-6">
+          {/* Summary stats */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center gap-3">
+              <div className="p-3 bg-emerald-500/20 text-emerald-400 rounded-lg">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-400 block">عدد الشقق المسددة للصيانة</span>
+                <span className="text-lg font-black text-emerald-400 font-mono">
+                  {paidApartments.length} شقة من أصل {openApartments.length}
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center gap-3">
+              <div className="p-3 bg-amber-500/20 text-amber-400 rounded-lg">
+                <DollarSign className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-400 block">إجمالي المحصل فعلياً</span>
+                <span className="text-lg font-black text-amber-400 font-mono dir-ltr">
+                  {formatCurrency(totalPaidAmount)}
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center gap-3">
+              <div className="p-3 bg-blue-500/20 text-blue-400 rounded-lg">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-400 block">نسبة التحصيل والالتزام</span>
+                <span className="text-lg font-black text-blue-400 font-mono">
+                  {Math.round((paidApartments.length / (openApartments.length || 1)) * 100)}%
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 print:bg-white print:text-black print:border-none print:p-0">
+            {/* Header for Print/Image */}
+            <div className="hidden print:block pb-4 mb-4 border-b-2 border-slate-800">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-xl font-black text-slate-900">اتحاد ملاك برج المعتز 10</h2>
+                  <p className="text-xs font-bold text-slate-700 mt-0.5">
+                    كشف المسددين لاشتراكات الصيانة الشهرية
+                  </p>
+                </div>
+                <div className="text-left font-mono text-xs text-slate-700">
+                  <div>الشهر: {monthData.monthName} {monthData.year}</div>
+                  <div>تاريخ الطباعة: {new Date().toLocaleDateString('ar-EG')}</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-start border-b border-slate-800 print:border-black pb-3">
+              <div>
+                <h3 className="font-black text-emerald-400 print:text-black text-base flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400 print:text-black" />
+                  <span>كشف حصري بالسكان المسددين لقيمة الصيانة الشهرية</span>
+                </h3>
+                <p className="text-xs text-slate-400 print:text-gray-600 mt-0.5">
+                  برج المعتز 10 — شهر {monthData.monthName} {monthData.year}
+                </p>
+              </div>
+
+              <span className="text-xs bg-emerald-500/20 text-emerald-300 print:bg-slate-200 print:text-black border border-emerald-500/30 print:border-black px-3 py-1 rounded-lg font-bold">
+                إجمالي المحصل: {formatCurrency(totalPaidAmount)}
+              </span>
+            </div>
+
+            {/* Paid Table */}
+            {paidApartments.length === 0 ? (
+              <div className="py-12 text-center text-slate-400 font-bold text-sm bg-slate-950/50 rounded-xl border border-slate-800">
+                لم يتم تسجيل أي سداد لاشتراكات الصيانة لهذا الشهر بعد.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-right border border-slate-800 print:border-black">
+                  <thead className="bg-slate-800 print:bg-slate-200 text-slate-200 print:text-black font-bold">
+                    <tr>
+                      <th className="p-2.5 border border-slate-700 print:border-black text-center">شقة</th>
+                      <th className="p-2.5 border border-slate-700 print:border-black text-center">الدور</th>
+                      <th className="p-2.5 border border-slate-700 print:border-black">اسم الساكن</th>
+                      <th className="p-2.5 border border-slate-700 print:border-black text-center">الهاتف</th>
+                      <th className="p-2.5 border border-slate-700 print:border-black text-center">المبلغ المسدد</th>
+                      <th className="p-2.5 border border-slate-700 print:border-black text-center">حالة السداد</th>
+                      <th className="p-2.5 border border-slate-700 print:border-black text-center print:hidden">إيصال السداد</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800 print:divide-black">
+                    {paidApartments.map((apt) => (
+                      <tr key={apt.id} className="hover:bg-slate-800/50 print:hover:bg-transparent">
+                        <td className="p-2.5 text-center font-black text-amber-400 print:text-black text-sm border border-slate-800 print:border-black">
+                          {apt.aptNumber}
+                        </td>
+                        <td className="p-2.5 text-center font-bold text-slate-300 print:text-black border border-slate-800 print:border-black">
+                          الدور {apt.floor}
+                        </td>
+                        <td className="p-2.5 font-bold text-slate-100 print:text-black border border-slate-800 print:border-black">
+                          <div>{apt.name || 'غير محدد'}</div>
+                          {apt.note && (
+                            <div className="text-[10px] text-amber-400/90 font-normal mt-0.5">
+                              📝 {apt.note}
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-2.5 text-center font-mono text-slate-400 print:text-black border border-slate-800 print:border-black dir-ltr">
+                          {apt.phone || '—'}
+                        </td>
+                        <td className="p-2.5 text-center font-mono font-black text-emerald-300 print:text-black border border-slate-800 print:border-black dir-ltr">
+                          {formatCurrency(apt.amount)}
+                        </td>
+                        <td className="p-2.5 text-center border border-slate-800 print:border-black">
+                          <span className="inline-flex items-center gap-1 bg-emerald-500/20 text-emerald-300 print:bg-emerald-100 print:text-emerald-900 px-2 py-0.5 rounded-full text-[11px] font-bold">
+                            <span>✅</span>
+                            <span>مسدد</span>
+                          </span>
+                        </td>
+                        <td className="p-2 text-center print:hidden">
+                          <button
+                            onClick={() => setSelectedAptForReceipt(apt)}
+                            className="bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold px-2.5 py-1 rounded text-[11px] border border-amber-500/30 transition flex items-center gap-1 mx-auto"
+                          >
+                            <Receipt className="w-3.5 h-3.5" />
+                            <span>عرض الإيصال</span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Bottom Stamp */}
+            <div className="pt-4 flex justify-between items-center border-t border-slate-800 print:border-black">
+              <span className="text-[11px] text-slate-400 print:text-black">
+                يعتمد هذا الكشف كبيان رسمي للمسددين لاشتراك الصيانة عن الشهر المذكور.
+              </span>
+
+              <div className="hidden print:block text-left">
+                <div className="border-2 border-blue-900 text-blue-950 rounded-full px-4 py-1.5 text-center inline-block transform -rotate-3 bg-blue-50/50">
+                  <div className="text-xs font-black my-0.5 text-blue-950 underline underline-offset-2">برج 10</div>
+                  <div className="text-[9px] font-bold text-blue-800">تقرير إداري معتمد</div>
+                  <div className="text-[8px] font-mono text-blue-700 mt-0.5">اتحاد الملاك</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* SUB REPORT 3: UNPAID MONTHLY MAINTENANCE (غير المسددين) */}
       {/* ======================================================== */}
       {activeSubReport === 'unpaid' && (
         <div className="space-y-6">
@@ -599,6 +811,8 @@ export const ReportsTab: React.FC<ReportsTabProps> = ({ monthData, activeExtraMa
           )}
         </div>
       )}
+      </div>
     </div>
   );
 };
+

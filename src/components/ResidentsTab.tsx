@@ -28,6 +28,7 @@ export const ResidentsTab: React.FC<ResidentsTabProps> = ({
   const [formPaid, setFormPaid] = useState<boolean>(true);
   const [formAmount, setFormAmount] = useState<number>(0);
   const [formSkip, setFormSkip] = useState<boolean>(false);
+  const [formNote, setFormNote] = useState('');
 
   // Filter apartments
   const filteredApartments = monthData.apartments.filter((apt) => {
@@ -102,6 +103,7 @@ export const ResidentsTab: React.FC<ResidentsTabProps> = ({
     setFormPaid(apt.paid);
     setFormAmount(apt.amount || 0);
     setFormSkip(apt.skip);
+    setFormNote(apt.note || '');
   };
 
   const handleCloseEdit = () => {
@@ -130,6 +132,7 @@ export const ResidentsTab: React.FC<ResidentsTabProps> = ({
           ...a,
           name: formName.trim(),
           phone: formPhone.trim(),
+          note: formNote.trim(),
           paid: formPaid,
           amount: finalAmount,
           skip: formSkip,
@@ -349,7 +352,13 @@ export const ResidentsTab: React.FC<ResidentsTabProps> = ({
                       <div className="text-[10px] text-slate-400">الدور {apt.floor}</div>
                     </td>
                     <td className="p-3 font-semibold">
-                      {apt.name || <span className="text-slate-500 italic">بدون اسم</span>}
+                      <div>{apt.name || <span className="text-slate-500 italic">بدون اسم</span>}</div>
+                      {apt.note && (
+                        <div className="text-[11px] font-normal text-amber-400/90 mt-0.5 flex items-center gap-1 bg-amber-500/10 px-2 py-0.5 rounded w-fit">
+                          <span>📝</span>
+                          <span>{apt.note}</span>
+                        </div>
+                      )}
                     </td>
                     <td className="p-3 font-mono text-slate-300 dir-ltr text-right">
                       {apt.phone || <span className="text-slate-600">—</span>}
@@ -513,6 +522,20 @@ export const ResidentsTab: React.FC<ResidentsTabProps> = ({
                   <option value="0">🟢 مفتوحة — هيطبع في الإيصالات واللوحات</option>
                   <option value="1">🔴 مغلقة — لا يطبع في الإيصالات</option>
                 </select>
+              </div>
+
+              {/* Field 6: Note / Remarks */}
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">
+                  ملاحظات الساكن (اختياري)
+                </label>
+                <input
+                  type="text"
+                  placeholder="أدخل أي ملاحظات خاصة بالساكن أو الشقة..."
+                  value={formNote}
+                  onChange={(e) => setFormNote(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-400"
+                />
               </div>
 
               <div className="flex gap-2 pt-3 border-t border-slate-800">

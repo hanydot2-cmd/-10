@@ -98,6 +98,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
       `رقم الشقة: ${apartment.aptNumber} (الدور ${apartment.floor})\n` +
       `عن شهر: ${monthData.monthName} ${monthData.year}\n` +
       `المبلغ الإجمالي المحصل: ${totalAmount} ج.م\n` +
+      (apartment.note ? `ملاحظات: ${apartment.note}\n` : '') +
       `تم إرفاق/تحميل صورة الإيصال المعتمد بالختم البيضاوي الرسمى.`;
 
     // Try Web Share API (Mobile WhatsApp photo share)
@@ -236,6 +237,14 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Note / Remarks if any */}
+            {apartment.note && (
+              <div className="bg-amber-50/80 border border-amber-300 rounded-lg px-3 py-1.5 text-xs text-amber-950 flex items-center gap-2">
+                <span className="font-bold text-[11px] text-amber-900 shrink-0">ملاحظات:</span>
+                <span className="font-semibold text-xs leading-snug">{apartment.note}</span>
+              </div>
+            )}
 
             {/* Bottom Status & Official Oval Stamp */}
             <div className="flex justify-between items-center pt-2 border-t border-slate-800">
