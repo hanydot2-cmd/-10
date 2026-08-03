@@ -12,6 +12,7 @@ import {
   getActiveExtraMaintenance,
   getDebts,
   saveDebts,
+  filterValidDebts,
   getUsers,
   saveUsers,
   transferUnpaidToDebts,
@@ -176,8 +177,9 @@ export default function App() {
     // 3. Debts Listener
     const unsubDebts = listenToDebts((remoteDebts) => {
       if (remoteDebts) {
-        setDebtsState(remoteDebts);
-        saveDebts(remoteDebts);
+        const valid = filterValidDebts(remoteDebts);
+        setDebtsState(valid);
+        saveDebts(valid);
       }
     });
 
@@ -323,11 +325,24 @@ export default function App() {
 
   // Manual trigger for rollover of unpaid to debts
   const handleTransferUnpaidToDebts = () => {
+    const [, mStr] = currentMonthKey.split('-');
+    const monthNum = parseInt(mStr) || 1;
+    if (monthNum < 9) {
+      alert('⚠️ تنبيه: ترحيل المديونيات التلقائي يبدأ من شهر 9 (سبتمبر) وما بعده حسب النظام.');
+      return;
+    }
     transferUnpaidToDebts(currentMonthKey);
     const d = getDebts();
     setDebtsState(d);
     saveDebtsFirebase(d);
     alert('✅ تم ترحيل جميع الشقق غير المسددة لهذا الشهر إلى جدول المديونيات بنجاح!');
+  };
+
+  const handleEditDebt = (updatedDebt: DebtItem) => {
+    const updated = debts.map((d) => (d.id === updatedDebt.id ? { ...updatedDebt, isManual: true } : d));
+    setDebtsState(updated);
+    saveDebts(updated);
+    saveDebtsFirebase(updated);
   };
 
   // App Reset
@@ -482,6 +497,7 @@ export default function App() {
             onAddDebt={handleAddDebt}
             onPayDebt={handlePayDebt}
             onDeleteDebt={handleDeleteDebt}
+            onEditDebt={handleEditDebt}
             onTransferUnpaidToDebts={handleTransferUnpaidToDebts}
             apartments={monthData.apartments}
           />

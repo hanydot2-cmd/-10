@@ -233,6 +233,14 @@ export function getNextMonthKey(currentKey: string): string {
 
 // Transfer unpaid items to Debts at end of month or month switch
 export function transferUnpaidToDebts(monthKey: string) {
+  // Requirement: المديونيات تبدأ من شهر 9 (سبتمبر) وما بعده
+  // لا يتم ترحيل متأخرات الشهور السابقة لشهر 9 تلقائياً إلى المديونيات
+  const [, mStr] = monthKey.split('-');
+  const monthNum = parseInt(mStr) || 1;
+  if (monthNum < 9) {
+    return;
+  }
+
   const monthData = getMonthData(monthKey);
   if (monthData.debtsTransferred) return;
 
@@ -257,7 +265,8 @@ export function transferUnpaidToDebts(monthKey: string) {
         amount: apt.amount,
         note: `صيانة شهرية ${monthData.monthName} ${monthData.year} غير مسددة${apt.skip ? ' (شقة مغلقة)' : ''}`,
         date: todayStr,
-        paid: false
+        paid: false,
+        isManual: false
       });
       addedCount++;
     }
@@ -273,7 +282,8 @@ export function transferUnpaidToDebts(monthKey: string) {
         amount: extraAmt,
         note: `صيانة إضافية (${activeExtra?.title || ''}) ${monthData.monthName} ${monthData.year} غير مسددة`,
         date: todayStr,
-        paid: false
+        paid: false,
+        isManual: false
       });
       addedCount++;
     }
@@ -287,19 +297,61 @@ export function transferUnpaidToDebts(monthKey: string) {
   saveMonthData(monthData);
 }
 
+const BEFORE_SEPTEMBER_MONTHS = [
+  'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس',
+  'شهر 1', 'شهر 2', 'شهر 3', 'شهر 4', 'شهر 5', 'شهر 6', 'شهر 7', 'شهر 8',
+  '-01-', '-02-', '-03-', '-04-', '-05-', '-06-', '-07-', '-08-',
+  '/01/', '/02/', '/03/', '/04/', '/05/', '/06/', '/07/', '/08/',
+  ' 1 ', ' 2 ', ' 3 ', ' 4 ', ' 5 ', ' 6 ', ' 7 ', ' 8 '
+];
+
+export function isManualDebt(debt: DebtItem): boolean {
+  if (debt.isManual !== undefined) return debt.isManual;
+  return !debt.id.includes('_monthly') && !debt.id.includes('_extra');
+}
+
+export function filterValidDebts(debts: DebtItem[]): DebtItem[] {
+  if (!Array.isArray(debts)) return [];
+  const VALID_AUTO_MONTHS = [
+    'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
+    '-09', '-10', '-11', '-12',
+    '/09', '/10', '/11', '/12',
+    'شهر 9', 'شهر 10', 'شهر 11', 'شهر 12'
+  ];
+  return debts.filter(d => {
+    if (isManualDebt(d)) return true; // ترك المديونيات المسجلة بواسطة الإدخال يدوياً (تعديل)
+    
+    // أي مديونيات تلقائية في شهر 8 أو ما قبله تساوي صفر ولا يتم احتسابها
+    const isBeforeSept = BEFORE_SEPTEMBER_MONTHS.some(m =>
+      (d.note && d.note.includes(m)) ||
+      (d.id && d.id.includes(m))
+    );
+    if (isBeforeSept) return false;
+
+    // التأكد الإضافي: المديونيات التلقائية يجب أن تنتمي لشهر 9 (سبتمبر) أو ما بعده
+    const isSeptOrLater = VALID_AUTO_MONTHS.some(m =>
+      (d.note && d.note.includes(m)) ||
+      (d.id && d.id.includes(m))
+    );
+    return isSeptOrLater;
+  });
+}
+
 // Debts Storage
 export function getDebts(): DebtItem[] {
   const raw = localStorage.getItem(STORAGE_KEYS.DEBTS);
   if (raw) {
     try {
-      return JSON.parse(raw);
+      const parsed: DebtItem[] = JSON.parse(raw);
+      return filterValidDebts(parsed);
     } catch (e) {}
   }
   return [];
 }
 
 export function saveDebts(debts: DebtItem[]) {
-  localStorage.setItem(STORAGE_KEYS.DEBTS, JSON.stringify(debts));
+  const valid = filterValidDebts(debts);
+  localStorage.setItem(STORAGE_KEYS.DEBTS, JSON.stringify(valid));
   broadcastSync('DEBTS_UPDATED');
 }
 

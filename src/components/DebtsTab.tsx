@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { DebtItem, Apartment } from '../types';
 import { formatCurrency, formatNumber, ARABIC_MONTHS } from '../lib/buildingConfig';
-import { FileSpreadsheet, Plus, CheckCircle2, Trash2, Calculator, Search, Share2, Download, ArrowRightLeft, AlertCircle } from 'lucide-react';
+import { FileSpreadsheet, Plus, CheckCircle2, Trash2, Calculator, Search, Share2, Download, ArrowRightLeft, AlertCircle, Edit, X } from 'lucide-react';
 
 interface DebtsTabProps {
   debts: DebtItem[];
   onAddDebt: (debt: DebtItem) => void;
   onPayDebt: (id: string) => void;
   onDeleteDebt: (id: string) => void;
+  onEditDebt?: (debt: DebtItem) => void;
   onTransferUnpaidToDebts?: () => void;
   apartments?: Apartment[];
 }
@@ -17,6 +18,7 @@ export const DebtsTab: React.FC<DebtsTabProps> = ({
   onAddDebt,
   onPayDebt,
   onDeleteDebt,
+  onEditDebt,
   onTransferUnpaidToDebts,
   apartments = [],
 }) => {
@@ -27,6 +29,14 @@ export const DebtsTab: React.FC<DebtsTabProps> = ({
   const [note, setNote] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [transferMsg, setTransferMsg] = useState(false);
+
+  // Edit Debt State
+  const [editingDebt, setEditingDebt] = useState<DebtItem | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editAmount, setEditAmount] = useState('');
+  const [editNote, setEditNote] = useState('');
+  const [editFloor, setEditFloor] = useState(1);
+  const [editAptNumber, setEditAptNumber] = useState(101);
 
   // Calculator State
   const [fromMonth, setFromMonth] = useState('');
@@ -48,12 +58,42 @@ export const DebtsTab: React.FC<DebtsTabProps> = ({
       note: note.trim(),
       date: new Date().toLocaleDateString('ar-EG'),
       paid: false,
+      isManual: true,
     };
 
     onAddDebt(newDebt);
     setName('');
     setAmount('');
     setNote('');
+  };
+
+  const handleOpenEditModal = (debt: DebtItem) => {
+    setEditingDebt(debt);
+    setEditName(debt.name);
+    setEditAmount(debt.amount.toString());
+    setEditNote(debt.note);
+    setEditFloor(debt.floor || 1);
+    setEditAptNumber(debt.aptNumber || 101);
+  };
+
+  const handleSaveEditDebt = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDebt || !onEditDebt) return;
+    const amt = parseFloat(editAmount);
+    if (isNaN(amt) || amt < 0) return;
+
+    const updated: DebtItem = {
+      ...editingDebt,
+      name: editName.trim() || `شقة ${editAptNumber}`,
+      amount: amt,
+      note: editNote.trim(),
+      floor: editFloor,
+      aptNumber: editAptNumber,
+      isManual: true, // ترك المديونيات المسجلة بواسطة الإدخال تعديل
+    };
+
+    onEditDebt(updated);
+    setEditingDebt(null);
   };
 
   // Debt calculation from last paid month
@@ -128,6 +168,18 @@ export const DebtsTab: React.FC<DebtsTabProps> = ({
               {formatCurrency(totalDebtAmount)}
             </span>
           </div>
+        </div>
+      </div>
+
+      {/* System policy note: month 9 start and manual debts editing */}
+      <div className="bg-blue-950/40 border border-blue-800/50 text-blue-300 p-3.5 rounded-xl text-xs font-semibold flex items-center gap-3 shadow-sm">
+        <AlertCircle className="w-5 h-5 text-blue-400 shrink-0" />
+        <div>
+          <span>📌 تنبيه إعدادات النظام: ترحيل المديونيات التلقائي يبدأ من </span>
+          <span className="text-amber-300 font-bold">شهر 9 (سبتمبر)</span>
+          <span> وما بعده. ويتم الاحتفاظ بجميع المديونيات المسجلة بواسطة الإدخال اليدوي مع إتاحة </span>
+          <span className="text-emerald-400 font-bold">التعديل عليها</span>
+          <span> في أي وقت.</span>
         </div>
       </div>
 
@@ -317,6 +369,17 @@ export const DebtsTab: React.FC<DebtsTabProps> = ({
                       <div className="text-[10px] text-amber-400">
                         شقة {debt.aptNumber} (دور {debt.floor})
                       </div>
+                      <div className="mt-1">
+                        {debt.isManual || (!debt.id.includes('_monthly') && !debt.id.includes('_extra')) ? (
+                          <span className="inline-block text-[10px] bg-amber-500/15 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-md font-bold">
+                            ✍️ مسجلة بواسطة الإدخال (تعديل)
+                          </span>
+                        ) : (
+                          <span className="inline-block text-[10px] bg-blue-500/15 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded-md font-bold">
+                            ⚡ ترحيل تلقائي (بدءاً من شهر 9)
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="p-3 text-slate-300 font-medium">{debt.note || '—'}</td>
                     <td className="p-3 text-center font-black text-rose-400 dir-ltr">
@@ -331,6 +394,16 @@ export const DebtsTab: React.FC<DebtsTabProps> = ({
                         >
                           سدد ✓
                         </button>
+                        {onEditDebt && (
+                          <button
+                            onClick={() => handleOpenEditModal(debt)}
+                            className="bg-amber-900/40 hover:bg-amber-800/60 text-amber-300 border border-amber-700/50 text-[11px] font-bold px-2 py-1 rounded transition flex items-center gap-1"
+                            title="تعديل المديونية"
+                          >
+                            <Edit className="w-3 h-3" />
+                            <span>تعديل</span>
+                          </button>
+                        )}
                         <button
                           onClick={() => onDeleteDebt(debt.id)}
                           className="p-1 text-rose-400 hover:text-rose-300 hover:bg-rose-900/30 rounded transition"
@@ -347,6 +420,106 @@ export const DebtsTab: React.FC<DebtsTabProps> = ({
           </table>
         </div>
       </div>
+
+      {/* Edit Debt Modal */}
+      {editingDebt && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4 text-right">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="text-base font-bold text-amber-400 flex items-center gap-2">
+                <Edit className="w-5 h-5 text-amber-400" />
+                <span>تعديل المديونية المسجلة</span>
+              </h3>
+              <button
+                onClick={() => setEditingDebt(null)}
+                className="text-slate-400 hover:text-slate-200 p-1 rounded-lg transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditDebt} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1">اسم الساكن</label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-400"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">الدور</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="12"
+                    value={editFloor}
+                    onChange={(e) => {
+                      const f = parseInt(e.target.value) || 1;
+                      setEditFloor(f);
+                      setEditAptNumber(f * 100 + 1);
+                    }}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1">رقم الشقة</label>
+                  <input
+                    type="number"
+                    value={editAptNumber}
+                    onChange={(e) => setEditAptNumber(parseInt(e.target.value) || 101)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1">المبلغ المستحق (ج.م)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={editAmount}
+                  onChange={(e) => setEditAmount(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-amber-400 font-bold focus:outline-none focus:border-amber-400"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 mb-1">ملاحظات / السبب</label>
+                <input
+                  type="text"
+                  value={editNote}
+                  onChange={(e) => setEditNote(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-400"
+                />
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="submit"
+                  className="flex-1 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 text-slate-950 font-black py-2.5 rounded-xl text-xs transition shadow-lg"
+                >
+                  حفظ التعديلات ✓
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingDebt(null)}
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-4 py-2.5 rounded-xl text-xs transition"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

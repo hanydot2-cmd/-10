@@ -29,6 +29,7 @@ export interface DebtItem {
   note: string;
   date: string;
   paid: boolean;
+  isManual?: boolean; // true if added or edited via manual entry (بواسطة الإدخال)
 }
 
 export interface ExtraMaintenance {
