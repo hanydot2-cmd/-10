@@ -6,6 +6,8 @@ import {
   getMonthData,
   saveMonthData,
   syncAndSanitizeMonthData,
+  mergeMonthData,
+  restoreMonthDataFromBackup,
   getNextMonthKey,
   getExtraMaintenances,
   saveExtraMaintenances,
@@ -156,13 +158,20 @@ export default function App() {
   useEffect(() => {
     // 1. Month Data Listener
     const unsubMonth = listenToMonthData(currentMonthKey, (remoteData) => {
+      const local = getMonthData(currentMonthKey);
       if (remoteData) {
-        const sanitized = syncAndSanitizeMonthData(remoteData);
-        setMonthDataState(sanitized);
-        saveMonthData(sanitized);
+        // Safe Merge to prevent wiping out local entries if remote snapshot is empty
+        const merged = mergeMonthData(local, remoteData);
+        setMonthDataState(merged);
+        saveMonthData(merged);
+        // Only write back to Firebase if merged contains more data than remote
+        const mergedPaid = merged.apartments.filter(a => a.paid).length;
+        const remotePaid = (remoteData.apartments || []).filter(a => a.paid).length;
+        if (merged.expenses.length > (remoteData.expenses || []).length || mergedPaid > remotePaid) {
+          saveMonthDataFirebase(merged);
+        }
       } else {
         // First initialization to Firebase
-        const local = getMonthData(currentMonthKey);
         saveMonthDataFirebase(local);
       }
     });
@@ -237,7 +246,7 @@ export default function App() {
     let currentKey = sanitized.key;
     for (let i = 0; i < 12; i++) {
       const nextKey = getNextMonthKey(currentKey);
-      const raw = localStorage.getItem('bmu10_month_' + nextKey);
+      const raw = localStorage.getItem('bmu10_months_data_' + nextKey);
       if (!raw) break;
       try {
         const nextData: MonthData = JSON.parse(raw);
@@ -482,6 +491,7 @@ export default function App() {
             monthData={monthData}
             activeExtraMaint={activeExtraMaint}
             isFirebaseConnected={isFirebaseConnected}
+            onUpdateMonthData={handleUpdateMonthData}
           />
         )}
 

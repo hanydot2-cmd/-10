@@ -1,18 +1,21 @@
 import React, { useState } from 'react';
 import { MonthData, ExtraMaintenance } from '../types';
 import { formatCurrency } from '../lib/buildingConfig';
-import { FileSpreadsheet, CheckCircle2, XCircle, DollarSign, Printer, Search, RefreshCw, Radio } from 'lucide-react';
+import { restoreMonthDataFromBackup } from '../lib/storage';
+import { FileSpreadsheet, CheckCircle2, XCircle, DollarSign, Printer, Search, RefreshCw, Radio, RotateCcw, ShieldCheck } from 'lucide-react';
 
 interface DataSheetTabProps {
   monthData: MonthData;
   activeExtraMaint: ExtraMaintenance | null;
   isFirebaseConnected?: boolean;
+  onUpdateMonthData?: (updated: MonthData) => void;
 }
 
 export const DataSheetTab: React.FC<DataSheetTabProps> = ({
   monthData,
   activeExtraMaint,
   isFirebaseConnected = true,
+  onUpdateMonthData,
 }) => {
   const [searchFilter, setSearchFilter] = useState('');
   const [activeSubTab, setActiveSubTab] = useState<'all' | 'paid' | 'unpaid' | 'expenses'>('all');
@@ -49,8 +52,45 @@ export const DataSheetTab: React.FC<DataSheetTabProps> = ({
     window.print();
   };
 
+  const handleQuickRestore = () => {
+    const restored = restoreMonthDataFromBackup(monthData.key);
+    if (restored) {
+      if (onUpdateMonthData) onUpdateMonthData(restored);
+      alert(`✅ تمت استعادة بيانات شهر (${monthData.monthName} ${monthData.year}) بنجاح!\nتم استرجاع المصروفات وسجل المسددين.`);
+    } else {
+      alert(`⚠️ لم يتم العثور على نسخة احتياطية سابقة مسجلة لشهر (${monthData.monthName} ${monthData.year}).`);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fadeIn">
+      {/* Recovery Banner */}
+      <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="p-2.5 bg-amber-500/20 text-amber-400 rounded-xl border border-amber-500/30 shrink-0">
+            <ShieldCheck className="w-5 h-5 text-amber-400" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-black text-amber-300">
+                مركز حماية واستعادة البيانات ({monthData.monthName} {monthData.year})
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+              تتم حماية وتزامن بيانات المصروفات والمسددين تلقائياً. في حال عدم ظهور البيانات، اضغط الزر لاستعادتها فوراً من النسخة الاحتياطية.
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleQuickRestore}
+          className="shrink-0 flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black px-4 py-2.5 rounded-xl text-xs shadow-md transition active:scale-95 w-full md:w-auto"
+        >
+          <RotateCcw className="w-4 h-4 stroke-[3]" />
+          <span>استعادة بيانات {monthData.monthName} الآن</span>
+        </button>
+      </div>
       {/* Header Banner */}
       <div className="bg-slate-900 border border-amber-500/40 rounded-2xl p-5 shadow-xl flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">

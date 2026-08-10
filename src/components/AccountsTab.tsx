@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { MonthData, ExtraMaintenance, Expense } from '../types';
 import { formatCurrency, formatNumber } from '../lib/buildingConfig';
 import { calculateCollectedAmount } from '../lib/storage';
-import { Plus, Trash2, Edit2, CheckCircle2, ArrowRightLeft, DollarSign, Wallet, CreditCard, TrendingUp } from 'lucide-react';
+import { Plus, Trash2, Edit2, CheckCircle2, ArrowRightLeft, DollarSign, Wallet, CreditCard, TrendingUp, RefreshCw, RotateCcw, ShieldCheck } from 'lucide-react';
+import { restoreMonthDataFromBackup } from '../lib/storage';
 
 interface AccountsTabProps {
   monthData: MonthData;
@@ -90,8 +91,49 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
     setIsEditingCol(false);
   };
 
+  // Quick Restore from local backup snapshot
+  const handleQuickRestore = () => {
+    const restored = restoreMonthDataFromBackup(monthData.key);
+    if (restored) {
+      onUpdateMonthData(restored);
+      alert(`✅ تمت استعادة بيانات شهر (${monthData.monthName} ${monthData.year}) بنجاح!\nتم استرجاع المصروفات وسجل المسددين.`);
+    } else {
+      alert(`⚠️ لم يتم العثور على نسخة احتياطية سابقة مسجلة لشهر (${monthData.monthName} ${monthData.year}).\nيمكنك إضافة المصروفات وتحديد المسددين وسيحفظ التطبيق نسخة احتياطية فورية تلقائياً.`);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fadeIn">
+      {/* Recovery Banner */}
+      <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="p-2.5 bg-amber-500/20 text-amber-400 rounded-xl border border-amber-500/30 shrink-0">
+            <ShieldCheck className="w-5 h-5 text-amber-400" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-black text-amber-300">
+                مركز حماية واستعادة البيانات ({monthData.monthName} {monthData.year})
+              </span>
+              <span className="px-2 py-0.5 bg-amber-400/20 text-amber-300 text-[10px] font-bold rounded-full">
+                حفظ احتياطي فوري
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+              تتم حماية وتزامن بيانات المصروفات والمسددين تلقائياً. في حال عدم ظهور البيانات، اضغط الزر لاستعادتها فوراً من النسخة الاحتياطية.
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleQuickRestore}
+          className="shrink-0 flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black px-4 py-2.5 rounded-xl text-xs shadow-md transition active:scale-95 w-full md:w-auto"
+        >
+          <RotateCcw className="w-4 h-4 stroke-[3]" />
+          <span>استعادة بيانات {monthData.monthName} الآن</span>
+        </button>
+      </div>
       {/* 4 Financial Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Previous Balance */}
