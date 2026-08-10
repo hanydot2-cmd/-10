@@ -1,4 +1,4 @@
-import { MonthData, DebtItem, ExtraMaintenance, DataEntryUser, Apartment } from '../types';
+import { MonthData, DebtItem, ExtraMaintenance, DataEntryUser, Apartment, Expense } from '../types';
 import { generateDefaultApartments, ARABIC_MONTHS } from './buildingConfig';
 
 const STORAGE_KEYS = {

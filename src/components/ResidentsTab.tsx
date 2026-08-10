@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Apartment, MonthData, ExtraMaintenance } from '../types';
 import { formatCurrency, formatNumber } from '../lib/buildingConfig';
-import { Search, Edit, CheckCircle, XCircle, Phone, MessageSquare, Save, X, Eye, EyeOff, Receipt } from 'lucide-react';
+import { Search, Edit, CheckCircle, XCircle, Phone, MessageSquare, Save, X, Eye, EyeOff, Receipt, Download, Upload, ShieldCheck, RefreshCw } from 'lucide-react';
 import { ReceiptModal } from './ReceiptModal';
+import { restoreMonthDataFromBackup, saveMasterResidents } from '../lib/storage';
+import { saveMasterResidentsFirebase } from '../lib/firebase';
 
 interface ResidentsTabProps {
   monthData: MonthData;
@@ -201,8 +203,39 @@ export const ResidentsTab: React.FC<ResidentsTabProps> = ({
     window.open(url, '_blank');
   };
 
+  const handleForceSyncResidentsToFirebase = () => {
+    onUpdateMasterResidents(monthData.apartments);
+    alert('✅ تم رفع وحفظ أسماء سكان جميع الشقق بـ Firebase بنجاح! ستظهر الأسماء فوراً في أي موقع أو رابط منشور على GitHub.');
+  };
+
   return (
     <div className="space-y-6 animate-fadeIn">
+      {/* GitHub & Cloud Sync Banner */}
+      <div className="bg-slate-900 border border-amber-500/30 rounded-2xl p-4 shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-amber-500/20 text-amber-400 rounded-xl border border-amber-500/30 shrink-0">
+            <ShieldCheck className="w-5 h-5 text-amber-400" />
+          </div>
+          <div>
+            <h4 className="text-xs font-black text-amber-300">
+              تزامن أسماء السكان لقاعدة البيانات وحفظها لنشر GitHub
+            </h4>
+            <p className="text-[11px] text-slate-300 mt-0.5">
+              تأكد من الضغط على زر المزمنة لرفع الأسماء محلياً وعلى سحابة Firebase لتظهر على موقع GitHub فوراً.
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleForceSyncResidentsToFirebase}
+          className="shrink-0 flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-4 py-2 rounded-xl text-xs shadow transition active:scale-95 w-full sm:w-auto"
+        >
+          <RefreshCw className="w-4 h-4 stroke-[2.5]" />
+          <span>حفظ وتزامن الأسماء بـ Firebase الآن</span>
+        </button>
+      </div>
+
       {/* Individual Receipt Modal */}
       {selectedAptForReceipt && (
         <ReceiptModal
