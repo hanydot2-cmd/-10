@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { MonthData, ExtraMaintenance, Expense } from '../types';
 import { formatCurrency, formatNumber } from '../lib/buildingConfig';
 import { calculateCollectedAmount } from '../lib/storage';
-import { Plus, Trash2, Edit2, CheckCircle2, ArrowRightLeft, DollarSign, Wallet, CreditCard, TrendingUp } from 'lucide-react';
+import { Plus, Trash2, Edit2, CheckCircle2, ArrowRightLeft, DollarSign, Wallet, CreditCard, TrendingUp, RefreshCw, RotateCcw, ShieldCheck } from 'lucide-react';
+import { restoreMonthDataFromBackup } from '../lib/storage';
 
 interface AccountsTabProps {
   monthData: MonthData;
@@ -88,6 +89,17 @@ export const AccountsTab: React.FC<AccountsTabProps> = ({
       });
     }
     setIsEditingCol(false);
+  };
+
+  // Quick Restore from local backup snapshot
+  const handleQuickRestore = () => {
+    const restored = restoreMonthDataFromBackup(monthData.key);
+    if (restored) {
+      onUpdateMonthData(restored);
+      alert(`✅ تمت استعادة بيانات شهر (${monthData.monthName} ${monthData.year}) بنجاح!\nتم استرجاع المصروفات وسجل المسددين.`);
+    } else {
+      alert(`⚠️ لم يتم العثور على نسخة احتياطية سابقة مسجلة لشهر (${monthData.monthName} ${monthData.year}).\nيمكنك إضافة المصروفات وتحديد المسددين وسيحفظ التطبيق نسخة احتياطية فورية تلقائياً.`);
+    }
   };
 
   return (

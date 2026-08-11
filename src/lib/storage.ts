@@ -1,4 +1,4 @@
-import { MonthData, DebtItem, ExtraMaintenance, DataEntryUser, Apartment } from '../types';
+import { MonthData, DebtItem, ExtraMaintenance, DataEntryUser, Apartment, Expense } from '../types';
 import { generateDefaultApartments, ARABIC_MONTHS } from './buildingConfig';
 
 const STORAGE_KEYS = {
@@ -96,6 +96,22 @@ export function getDynamicPrevBalance(monthKey: string, visitedKeys = new Set<st
 export function syncAndSanitizeMonthData(data: MonthData): MonthData {
   if (!data) return data;
 
+  if (!Array.isArray(data.expenses)) {
+    data.expenses = [];
+  }
+
+  if (!Array.isArray(data.apartments) || data.apartments.length !== 160) {
+    const master = getMasterResidents();
+    if (Array.isArray(data.apartments) && data.apartments.length > 0) {
+      data.apartments = master.map(m => {
+        const found = data.apartments.find(a => a.id === m.id || a.aptNumber === m.aptNumber);
+        return found ? { ...m, ...found } : { ...m, paid: false, paidExtraMaint: false };
+      });
+    } else {
+      data.apartments = master.map(a => ({ ...a, paid: false, paidExtraMaint: false }));
+    }
+  }
+
   const activeExtra = getActiveExtraMaintenance(data.key);
   data.collectedAmount = calculateCollectedAmount(data, activeExtra);
 
@@ -104,6 +120,103 @@ export function syncAndSanitizeMonthData(data: MonthData): MonthData {
   }
 
   return data;
+}
+
+// Helper to safely merge local and remote month data without losing entries
+export function mergeMonthData(local: MonthData | null, remote: MonthData | null): MonthData {
+  if (!local && !remote) return getMonthData(getCurrentMonthKey());
+  if (!local) return syncAndSanitizeMonthData(remote!);
+  if (!remote) return syncAndSanitizeMonthData(local);
+
+  // Merge expenses: union of unique expenses by ID or by (name + amount)
+  const expenseMap = new Map<string, Expense>();
+  (remote.expenses || []).forEach(e => {
+    if (e && e.name) expenseMap.set(e.id || `${e.name}_${e.amount}`, e);
+  });
+  (local.expenses || []).forEach(e => {
+    if (e && e.name) expenseMap.set(e.id || `${e.name}_${e.amount}`, e);
+  });
+  const mergedExpenses = Array.from(expenseMap.values());
+
+  // Merge apartments: keep paid = true if paid in either local or remote
+  const master = getMasterResidents();
+  const mergedApartments = master.map(masterApt => {
+    const localApt = (local.apartments || []).find(a => a.id === masterApt.id || a.aptNumber === masterApt.aptNumber);
+    const remoteApt = (remote.apartments || []).find(a => a.id === masterApt.id || a.aptNumber === masterApt.aptNumber);
+
+    const base = localApt || remoteApt || masterApt;
+    const isPaid = Boolean(localApt?.paid || remoteApt?.paid);
+    const isPaidExtra = Boolean(localApt?.paidExtraMaint || remoteApt?.paidExtraMaint);
+
+    return {
+      ...masterApt,
+      ...base,
+      name: (localApt?.name && localApt.name.trim()) ? localApt.name : ((remoteApt?.name && remoteApt.name.trim()) ? remoteApt.name : masterApt.name),
+      phone: localApt?.phone || remoteApt?.phone || masterApt.phone,
+      amount: localApt?.amount || remoteApt?.amount || masterApt.amount,
+      paid: isPaid,
+      paidExtraMaint: isPaidExtra,
+      skip: localApt?.skip ?? remoteApt?.skip ?? masterApt.skip,
+      note: localApt?.note || remoteApt?.note || masterApt.note,
+    };
+  });
+
+  const merged: MonthData = {
+    key: remote.key || local.key,
+    monthName: remote.monthName || local.monthName,
+    year: remote.year || local.year,
+    prevBalance: remote.manualPrevBalanceEdited ? remote.prevBalance : (local.prevBalance ?? remote.prevBalance ?? 0),
+    manualPrevBalanceEdited: local.manualPrevBalanceEdited || remote.manualPrevBalanceEdited,
+    collectedAmount: Math.max(local.collectedAmount || 0, remote.collectedAmount || 0),
+    manualCollectedEdited: local.manualCollectedEdited || remote.manualCollectedEdited,
+    colExtraManual: Math.max(local.colExtraManual || 0, remote.colExtraManual || 0),
+    expenses: mergedExpenses,
+    apartments: mergedApartments,
+    debtsTransferred: local.debtsTransferred || remote.debtsTransferred,
+  };
+
+  return syncAndSanitizeMonthData(merged);
+}
+
+export function restoreMonthDataFromBackup(monthKey: string): MonthData | null {
+  const keysToTry = [
+    'bmu10_backup_' + STORAGE_KEYS.MONTHS_DATA + monthKey,
+    'bmu10_snapshot_' + monthKey,
+    'bmu_months_data_' + monthKey,
+  ];
+
+  for (const k of keysToTry) {
+    const raw = localStorage.getItem(k);
+    if (raw) {
+      try {
+        const parsed: MonthData = JSON.parse(raw);
+        if (parsed && parsed.apartments) {
+          const sanitized = syncAndSanitizeMonthData(parsed);
+          saveMonthData(sanitized);
+          return sanitized;
+        }
+      } catch (e) {}
+    }
+  }
+
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.includes(monthKey)) {
+      const raw = localStorage.getItem(k);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed && parsed.apartments && Array.isArray(parsed.apartments)) {
+            const sanitized = syncAndSanitizeMonthData(parsed as MonthData);
+            saveMonthData(sanitized);
+            return sanitized;
+          }
+        } catch (e) {}
+      }
+    }
+  }
+
+  return null;
 }
 
 // Helper to accurately calculate total collected amount for a month
@@ -187,6 +300,13 @@ export function saveMonthData(data: MonthData) {
   const sanitized = syncAndSanitizeMonthData(data);
   localStorage.setItem(STORAGE_KEYS.MONTHS_DATA + sanitized.key, JSON.stringify(sanitized));
 
+  // Save backup snapshot if data has expenses or paid status
+  const hasExpenses = sanitized.expenses && sanitized.expenses.length > 0;
+  const hasPaid = sanitized.apartments && sanitized.apartments.some(a => a.paid);
+  if (hasExpenses || hasPaid) {
+    localStorage.setItem('bmu10_backup_' + STORAGE_KEYS.MONTHS_DATA + sanitized.key, JSON.stringify(sanitized));
+  }
+
   // Cascade previous balance update to subsequent month if it exists in storage
   const nextMonthKey = getNextMonthKey(sanitized.key);
   const nextDataRaw = localStorage.getItem(STORAGE_KEYS.MONTHS_DATA + nextMonthKey);
@@ -229,6 +349,63 @@ export function getNextMonthKey(currentKey: string): string {
     y += 1;
   }
   return `${y}-${String(m).padStart(2, '0')}`;
+}
+
+export function getAdvanceMonthKeys(startKey: string, count: number): string[] {
+  const keys: string[] = [startKey];
+  let current = startKey;
+  for (let i = 1; i < count; i++) {
+    current = getNextMonthKey(current);
+    keys.push(current);
+  }
+  return keys;
+}
+
+export function processAdvancePayment(
+  monthData: MonthData,
+  aptId: number,
+  advanceMonthsCount: number,
+  customNote?: string
+): MonthData {
+  if (advanceMonthsCount <= 0) return monthData;
+
+  const startKey = monthData.key;
+  const coveredKeys = getAdvanceMonthKeys(startKey, advanceMonthsCount);
+  const untilKey = coveredKeys[coveredKeys.length - 1];
+
+  let currentMonthDataUpdated: MonthData = monthData;
+
+  coveredKeys.forEach((key) => {
+    const mData = key === startKey ? monthData : getMonthData(key);
+    const updatedApts = mData.apartments.map((apt) => {
+      if (apt.id === aptId) {
+        return {
+          ...apt,
+          paid: true,
+          advanceMonths: advanceMonthsCount,
+          advanceStartKey: startKey,
+          advanceUntilKey: untilKey,
+          note: customNote || `مسدد مقدماً (${advanceMonthsCount} شهور حتى ${untilKey})`,
+        };
+      }
+      return apt;
+    });
+
+    const updatedMonthData: MonthData = {
+      ...mData,
+      manualCollectedEdited: false,
+      apartments: updatedApts,
+    };
+
+    const sanitized = syncAndSanitizeMonthData(updatedMonthData);
+    saveMonthData(sanitized);
+
+    if (key === startKey) {
+      currentMonthDataUpdated = sanitized;
+    }
+  });
+
+  return currentMonthDataUpdated;
 }
 
 // Transfer unpaid items to Debts at end of month or month switch
@@ -324,8 +501,7 @@ export function filterValidDebts(debts: DebtItem[]): DebtItem[] {
     // أي مديونيات تلقائية في شهر 8 أو ما قبله تساوي صفر ولا يتم احتسابها
     const isBeforeSept = BEFORE_SEPTEMBER_MONTHS.some(m =>
       (d.note && d.note.includes(m)) ||
-      (d.id && d.id.includes(m)) ||
-      (d.date && d.date.includes(m))
+      (d.id && d.id.includes(m))
     );
     if (isBeforeSept) return false;
 

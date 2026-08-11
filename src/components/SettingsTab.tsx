@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Settings, Trash2, Download, Upload, Users, Moon, Sun, ShieldAlert, Wifi, RefreshCw, KeyRound, CheckCircle2, XCircle, Palette, Check, Type } from 'lucide-react';
-import { testFirebaseConnection } from '../lib/firebase';
+import { testFirebaseConnection, uploadAllLocalDataToFirebase, fetchAllFirebaseDataToLocal } from '../lib/firebase';
+import { syncAndSanitizeMonthData } from '../lib/storage';
 import { AppTheme, AppFont } from '../types';
 
 interface SettingsTabProps {
@@ -48,41 +49,127 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     }
   };
 
-  const handleBackupExport = () => {
-    const backupData: Record<string, string | null> = {};
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && k.startsWith('bmu10_')) {
-        backupData[k] = localStorage.getItem(k);
-      }
+  const [syncingCloud, setSyncingCloud] = useState(false);
+
+  const handleSyncAllToCloud = async () => {
+    setSyncingCloud(true);
+    const res = await uploadAllLocalDataToFirebase();
+    setSyncingCloud(false);
+    if (res.success) {
+      alert(`✅ تمت مزامنة ورفع كافة البيانات والسجلات للسحابة (Firebase) بنجاح!\nتستطيع الآن فتح التطبيق من أي جهاز آخر أو رابط معاينة وشاهد البيانات المحدثة.`);
+    } else {
+      alert('⚠️ حدث خطأ أثناء المزامنة بالسحابة، يرجى التأكد من الاتصال بالإنترنت وإعادة المحاولة.');
     }
-    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `burj-almuataz10-backup-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+  };
+
+  const [exportingBackup, setExportingBackup] = useState(false);
+  const [restoringBackup, setRestoringBackup] = useState(false);
+
+  const handleBackupExport = async () => {
+    setExportingBackup(true);
+    try {
+      // 1. Fetch latest data from cloud so local storage has complete records across all months
+      await fetchAllFirebaseDataToLocal();
+
+      // 2. Gather all bmu10_ entries from localStorage
+      const backupData: Record<string, any> = {};
+      let monthsCount = 0;
+      let totalExpenses = 0;
+      let totalPaidCount = 0;
+
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith('bmu10_')) {
+          const val = localStorage.getItem(k);
+          backupData[k] = val;
+
+          if (k.startsWith('bmu10_months_data_') && val) {
+            try {
+              const m = JSON.parse(val);
+              if (m && m.key) {
+                monthsCount++;
+                if (Array.isArray(m.expenses)) {
+                  totalExpenses += m.expenses.length;
+                }
+                if (Array.isArray(m.apartments)) {
+                  totalPaidCount += m.apartments.filter((a: any) => a.paid).length;
+                }
+              }
+            } catch (e) {}
+          }
+        }
+      }
+
+      // 3. Export as formatted JSON file
+      const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `burj-almuataz10-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      alert(
+        `✅ تم تصدير النسخة الاحتياطية المكتملة بنجاح!\n\n` +
+        `الملف يحتوي على كافة البيانات بشكل كامل:\n` +
+        `• المصروفات والسجلات المالية (${totalExpenses} مصروف مسجل)\n` +
+        `• بيانات سكان العمارة وحالة التسديد (${totalPaidCount} عملية تسديد)\n` +
+        `• عدد الشهور المسجلة (${monthsCount} شهر)\n` +
+        `• المديونيات والمستحقات وسجلات صيانة المصعد\n` +
+        `• حسابات المستخدمين والتفضيلات.`
+      );
+    } catch (err) {
+      alert('⚠️ حدث خطأ أثناء إنشاء النسخة الاحتياطية، يرجى المحاولة مرة أخرى.');
+    } finally {
+      setExportingBackup(false);
+    }
   };
 
   const handleBackupRestore = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setRestoringBackup(true);
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const text = event.target?.result as string;
         const data = JSON.parse(text);
+
+        let restoredKeysCount = 0;
+        let restoredMonthsCount = 0;
+
         Object.keys(data).forEach((k) => {
-          if (k.startsWith('bmu10_') && data[k]) {
-            localStorage.setItem(k, data[k]);
+          if (k.startsWith('bmu10_') && data[k] !== undefined && data[k] !== null) {
+            const val = typeof data[k] === 'string' ? data[k] : JSON.stringify(data[k]);
+            localStorage.setItem(k, val);
+            restoredKeysCount++;
+            if (k.startsWith('bmu10_months_data_')) {
+              restoredMonthsCount++;
+              try {
+                const parsed = JSON.parse(val);
+                if (parsed && parsed.key) {
+                  const sanitized = syncAndSanitizeMonthData(parsed);
+                  localStorage.setItem(k, JSON.stringify(sanitized));
+                }
+              } catch (e) {}
+            }
           }
         });
-        alert('تمت استعادة النسخة الاحتياطية بنجاح!');
+
+        // Sync restored local data to Firebase instantly
+        await uploadAllLocalDataToFirebase();
+
+        alert(
+          `✅ تمت استعادة كافة البيانات بنجاح!\n\n` +
+          `تم استرجاع (${restoredMonthsCount}) شهر بالكامل، بما فيها المصروفات، بيانات السكان، وحالة التسديد والمديونيات.\n` +
+          `تمت المزامنة الفورية أيضاً مع قاعدة البيانات السحابية (Firebase).`
+        );
         window.location.reload();
       } catch (err) {
-        alert('حدث خطأ أثناء قراءة ملف النسخة الاحتياطية');
+        alert('⚠️ حدث خطأ أثناء قراءة ملف النسخة الاحتياطية. يرجى التأكد من اختيار ملف JSON صحيح.');
+      } finally {
+        setRestoringBackup(false);
       }
     };
     reader.readAsText(file);
@@ -166,6 +253,27 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             >
               <RefreshCw className={`w-3.5 h-3.5 ${testing ? 'animate-spin' : ''}`} />
               <span>{testing ? 'جاري الفحص...' : 'فحص الاتصال بـ Firebase'}</span>
+            </button>
+          </div>
+
+          {/* Sync All Local Data to Firebase Cloud Button */}
+          <div className="bg-amber-500/10 p-3.5 rounded-xl border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div>
+              <span className="text-xs font-black text-amber-300 block">
+                مزامنة ورفع جميع البيانات والشهور إلى السحابة (Firebase)
+              </span>
+              <p className="text-[11px] text-slate-300 mt-0.5">
+                تأكيد رفع كافة المصروفات وسجلات المسددين والسكان من جهازك الحالي إلى خادم Firebase لتظهر فوراً على الأجهزة والأوضاع الأخرى.
+              </p>
+            </div>
+
+            <button
+              onClick={handleSyncAllToCloud}
+              disabled={syncingCloud}
+              className="flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-4 py-2 rounded-xl text-xs shadow transition active:scale-95 disabled:opacity-50 shrink-0 w-full sm:w-auto"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 stroke-[2.5] ${syncingCloud ? 'animate-spin' : ''}`} />
+              <span>{syncingCloud ? 'جاري المزامنة...' : 'مزامنة ورفع كافة البيانات للسحابة الآن'}</span>
             </button>
           </div>
         </div>
@@ -388,22 +496,35 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
         {/* Backup Export/Import */}
         <div className="py-4 space-y-3">
-          <span className="text-sm font-bold text-slate-200 block">💾 النسخ الاحتياطي للبيانات</span>
-          <div className="grid grid-cols-2 gap-3">
+          <span className="text-sm font-bold text-slate-200 block">💾 النسخ الاحتياطي للبيانات (تصدير واستعادة كاملة)</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button
+              type="button"
               onClick={handleBackupExport}
-              className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold py-2 rounded-lg text-xs transition"
+              disabled={exportingBackup}
+              className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold py-2.5 rounded-lg text-xs transition disabled:opacity-50"
             >
-              <Download className="w-4 h-4 text-amber-400" />
-              <span>تصدير نسخة احتياطية (JSON)</span>
+              {exportingBackup ? (
+                <RefreshCw className="w-4 h-4 text-amber-400 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4 text-amber-400" />
+              )}
+              <span>{exportingBackup ? 'جاري تجميع وحفظ النسخة...' : 'تصدير نسخة احتياطية شاملة (JSON)'}</span>
             </button>
 
-            <label className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold py-2 rounded-lg text-xs transition cursor-pointer">
-              <Upload className="w-4 h-4 text-amber-400" />
-              <span>استعادة نسخة (JSON)</span>
-              <input type="file" accept=".json" onChange={handleBackupRestore} className="hidden" />
+            <label className={`flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold py-2.5 rounded-lg text-xs transition cursor-pointer ${restoringBackup ? 'opacity-50 pointer-events-none' : ''}`}>
+              {restoringBackup ? (
+                <RefreshCw className="w-4 h-4 text-amber-400 animate-spin" />
+              ) : (
+                <Upload className="w-4 h-4 text-amber-400" />
+              )}
+              <span>{restoringBackup ? 'جاري الاستعادة والمزامنة...' : 'استعادة نسخة احتياطية (JSON)'}</span>
+              <input type="file" accept=".json" onChange={handleBackupRestore} disabled={restoringBackup} className="hidden" />
             </label>
           </div>
+          <p className="text-[11px] text-slate-400">
+            📌 يشمل ملف النسخة الاحتياطية (JSON): كافة المصروفات والسجلات المالية، حالة التسديد لجميع الشقق، بيانات السكان، المديونيات، سجلات صيانة المصعد، وحسابات المستخدمين بالكامل.
+          </p>
         </div>
 
         {/* Reset Application */}

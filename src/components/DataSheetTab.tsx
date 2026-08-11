@@ -1,21 +1,28 @@
 import React, { useState } from 'react';
-import { MonthData, ExtraMaintenance } from '../types';
+import { MonthData, ExtraMaintenance, Apartment } from '../types';
 import { formatCurrency } from '../lib/buildingConfig';
-import { FileSpreadsheet, CheckCircle2, XCircle, DollarSign, Printer, Search, RefreshCw, Radio } from 'lucide-react';
+import { restoreMonthDataFromBackup } from '../lib/storage';
+import { FileSpreadsheet, CheckCircle2, XCircle, DollarSign, Printer, Search, RefreshCw, Radio, RotateCcw, ShieldCheck, Calendar } from 'lucide-react';
+import { AdvancePaymentModal } from './AdvancePaymentModal';
 
 interface DataSheetTabProps {
   monthData: MonthData;
   activeExtraMaint: ExtraMaintenance | null;
   isFirebaseConnected?: boolean;
+  onUpdateMonthData?: (updated: MonthData) => void;
+  onAdvancePayment?: (aptId: number, monthsCount: number, note: string) => void;
 }
 
 export const DataSheetTab: React.FC<DataSheetTabProps> = ({
   monthData,
   activeExtraMaint,
   isFirebaseConnected = true,
+  onUpdateMonthData,
+  onAdvancePayment,
 }) => {
   const [searchFilter, setSearchFilter] = useState('');
   const [activeSubTab, setActiveSubTab] = useState<'all' | 'paid' | 'unpaid' | 'expenses'>('all');
+  const [advanceApt, setAdvanceApt] = useState<Apartment | null>(null);
 
   const totalExpenses = monthData.expenses.reduce((s, e) => s + e.amount, 0);
 
@@ -47,6 +54,16 @@ export const DataSheetTab: React.FC<DataSheetTabProps> = ({
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleQuickRestore = () => {
+    const restored = restoreMonthDataFromBackup(monthData.key);
+    if (restored) {
+      if (onUpdateMonthData) onUpdateMonthData(restored);
+      alert(`✅ تمت استعادة بيانات شهر (${monthData.monthName} ${monthData.year}) بنجاح!\nتم استرجاع المصروفات وسجل المسددين.`);
+    } else {
+      alert(`⚠️ لم يتم العثور على نسخة احتياطية سابقة مسجلة لشهر (${monthData.monthName} ${monthData.year}).`);
+    }
   };
 
   return (
@@ -328,10 +345,22 @@ export const DataSheetTab: React.FC<DataSheetTabProps> = ({
                         )}
                         <td className="p-3 font-black text-amber-400">{formatCurrency(totalDue)}</td>
                         <td className="p-3">
-                          <span className="inline-flex items-center gap-1 bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2.5 py-0.5 rounded-full text-[11px] font-bold">
-                            <XCircle className="w-3 h-3 text-amber-400" />
-                            <span>غير مسدد</span>
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1 bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2.5 py-0.5 rounded-full text-[11px] font-bold">
+                              <XCircle className="w-3 h-3 text-amber-400" />
+                              <span>غير مسدد</span>
+                            </span>
+                            {onAdvancePayment && (
+                              <button
+                                onClick={() => setAdvanceApt(apt)}
+                                className="inline-flex items-center gap-1 text-[10px] bg-emerald-500/20 hover:bg-emerald-500 hover:text-slate-950 text-emerald-300 border border-emerald-500/40 px-2 py-1 rounded-lg font-bold transition shadow-sm"
+                                title="تسديد عدة شهور مقدماً"
+                              >
+                                <Calendar className="w-3 h-3" />
+                                <span>تسديد مقدماً</span>
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -341,6 +370,19 @@ export const DataSheetTab: React.FC<DataSheetTabProps> = ({
             </div>
           )}
         </div>
+      )}
+
+      {advanceApt && onAdvancePayment && (
+        <AdvancePaymentModal
+          isOpen={Boolean(advanceApt)}
+          onClose={() => setAdvanceApt(null)}
+          apartment={advanceApt}
+          currentMonthKey={monthData.key}
+          onConfirmAdvance={(aptId, count, note) => {
+            onAdvancePayment(aptId, count, note);
+            setAdvanceApt(null);
+          }}
+        />
       )}
     </div>
   );

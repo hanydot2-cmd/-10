@@ -4,11 +4,24 @@ import {
   doc,
   setDoc,
   getDoc,
+  collection,
+  getDocs,
   onSnapshot,
   enableIndexedDbPersistence
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { MonthData, DebtItem, ExtraMaintenance, DataEntryUser, Apartment } from '../types';
+import {
+  syncAndSanitizeMonthData,
+  saveMonthData,
+  saveMasterResidents,
+  getMasterResidents,
+  saveDebts,
+  saveExtraMaintenances,
+  saveUsers,
+  getMonthData,
+  mergeMonthData,
+} from './storage';
 
 // Initialize Firebase App
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
@@ -234,3 +247,135 @@ export async function saveUsersFirebase(users: DataEntryUser[]) {
     setConnectionState(false);
   }
 }
+
+// Bulk Sync: Upload all local data (months, residents, debts, extra, users) to Firebase
+export async function uploadAllLocalDataToFirebase(): Promise<{ count: number; success: boolean }> {
+  let uploadedMonthsCount = 0;
+  try {
+    // 1. Upload Master Residents
+    const rawResidents = localStorage.getItem('bmu10_master_residents');
+    if (rawResidents) {
+      try {
+        const apts = JSON.parse(rawResidents);
+        if (Array.isArray(apts) && apts.length > 0) {
+          await saveMasterResidentsFirebase(apts);
+        }
+      } catch (e) {}
+    }
+
+    // 2. Upload Debts
+    const rawDebts = localStorage.getItem('bmu10_debts');
+    if (rawDebts) {
+      try {
+        const debts = JSON.parse(rawDebts);
+        if (Array.isArray(debts)) {
+          await saveDebtsFirebase(debts);
+        }
+      } catch (e) {}
+    }
+
+    // 3. Upload Extra Maintenance
+    const rawExtra = localStorage.getItem('bmu10_extra_maint');
+    if (rawExtra) {
+      try {
+        const extra = JSON.parse(rawExtra);
+        if (Array.isArray(extra)) {
+          await saveExtraMaintenanceFirebase(extra);
+        }
+      } catch (e) {}
+    }
+
+    // 4. Upload Users
+    const rawUsers = localStorage.getItem('bmu10_users');
+    if (rawUsers) {
+      try {
+        const users = JSON.parse(rawUsers);
+        if (Array.isArray(users)) {
+          await saveUsersFirebase(users);
+        }
+      } catch (e) {}
+    }
+
+    // 5. Upload All Month Data from localStorage
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith('bmu10_months_data_') || key.startsWith('bmu10_backup_bmu10_months_data_'))) {
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          try {
+            const data: MonthData = JSON.parse(raw);
+            if (data && data.key && Array.isArray(data.apartments) && data.apartments.length > 0) {
+              const sanitized = syncAndSanitizeMonthData(data);
+              await saveMonthDataFirebase(sanitized);
+              uploadedMonthsCount++;
+            }
+          } catch (e) {}
+        }
+      }
+    }
+
+    return { count: uploadedMonthsCount, success: true };
+  } catch (err) {
+    console.warn('Error in uploadAllLocalDataToFirebase:', err);
+    return { count: uploadedMonthsCount, success: false };
+  }
+}
+
+// Fetch all Firebase collections into local storage so local state is complete
+export async function fetchAllFirebaseDataToLocal(): Promise<{ monthsCount: number; success: boolean }> {
+  let monthsCount = 0;
+  try {
+    // 1. Fetch all month documents from Firebase 'months' collection
+    const monthsRef = collection(db, 'months');
+    const monthsSnap = await getDocs(monthsRef);
+    monthsSnap.forEach((docSnap) => {
+      if (docSnap.exists()) {
+        const remoteMonth = docSnap.data() as MonthData;
+        if (remoteMonth && remoteMonth.key) {
+          const local = getMonthData(remoteMonth.key);
+          const merged = local ? mergeMonthData(local, remoteMonth) : syncAndSanitizeMonthData(remoteMonth);
+          saveMonthData(merged);
+          monthsCount++;
+        }
+      }
+    });
+
+    // 2. Fetch Master Residents
+    const resRef = doc(db, 'appData', 'masterResidents');
+    const resSnap = await getDoc(resRef);
+    if (resSnap.exists() && Array.isArray(resSnap.data()?.items)) {
+      const remoteApts = resSnap.data().items as Apartment[];
+      const localApts = getMasterResidents();
+      if (!localApts || localApts.length === 0 || remoteApts.some((a) => a.name && a.name.trim())) {
+        saveMasterResidents(remoteApts);
+      }
+    }
+
+    // 3. Fetch Debts
+    const debtsRef = doc(db, 'appData', 'debts');
+    const debtsSnap = await getDoc(debtsRef);
+    if (debtsSnap.exists() && Array.isArray(debtsSnap.data()?.items)) {
+      saveDebts(debtsSnap.data().items as DebtItem[]);
+    }
+
+    // 4. Fetch Extra Maintenance
+    const extraRef = doc(db, 'appData', 'extraMaintenance');
+    const extraSnap = await getDoc(extraRef);
+    if (extraSnap.exists() && Array.isArray(extraSnap.data()?.items)) {
+      saveExtraMaintenances(extraSnap.data().items as ExtraMaintenance[]);
+    }
+
+    // 5. Fetch Users
+    const usersRef = doc(db, 'appData', 'users');
+    const usersSnap = await getDoc(usersRef);
+    if (usersSnap.exists() && Array.isArray(usersSnap.data()?.items)) {
+      saveUsers(usersSnap.data().items as DataEntryUser[]);
+    }
+
+    return { monthsCount, success: true };
+  } catch (err) {
+    console.warn('Error fetching all Firebase data to local:', err);
+    return { monthsCount, success: false };
+  }
+}
+

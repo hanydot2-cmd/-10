@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { MonthData, ExtraMaintenance } from '../types';
+import { MonthData, ExtraMaintenance, Apartment } from '../types';
 import { formatCurrency } from '../lib/buildingConfig';
-import { Receipt, Search, CheckCircle2, Lock, X } from 'lucide-react';
+import { Receipt, Search, CheckCircle2, Lock, X, Calendar } from 'lucide-react';
+import { AdvancePaymentModal } from './AdvancePaymentModal';
 
 interface CollectionPanelViewProps {
   monthData: MonthData;
   activeExtraMaint: ExtraMaintenance | null;
   onUpdateMonthData: (updated: MonthData) => void;
+  onAdvancePayment?: (aptId: number, monthsCount: number, note: string) => void;
   onClose?: () => void;
 }
 
@@ -14,9 +16,11 @@ export const CollectionPanelView: React.FC<CollectionPanelViewProps> = ({
   monthData,
   activeExtraMaint,
   onUpdateMonthData,
+  onAdvancePayment,
   onClose,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [advanceApt, setAdvanceApt] = useState<Apartment | null>(null);
 
   const filteredApartments = monthData.apartments.filter((apt) => {
     if (!searchTerm.trim()) return true;
@@ -131,6 +135,24 @@ export const CollectionPanelView: React.FC<CollectionPanelViewProps> = ({
                 </div>
 
                 <div className="flex items-center gap-3">
+                  {!apt.paid && !apt.skip && onAdvancePayment && (
+                    <button
+                      type="button"
+                      onClick={() => setAdvanceApt(apt)}
+                      className="bg-emerald-500/20 hover:bg-emerald-500 hover:text-slate-950 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold px-2 py-1.5 rounded-lg transition flex items-center gap-1 shadow-sm"
+                      title="تسديد عدة شهور مقدماً"
+                    >
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span>تسديد مقدماً</span>
+                    </button>
+                  )}
+
+                  {apt.paid && apt.advanceUntilKey && (
+                    <span className="text-[10px] font-bold text-amber-300 bg-amber-950/60 border border-amber-500/40 px-2 py-1 rounded-lg">
+                      مقدماً حتى {apt.advanceUntilKey}
+                    </span>
+                  )}
+
                   {/* Monthly Checkbox */}
                   <label className="flex flex-col items-center gap-1 cursor-pointer">
                     <span className="text-[10px] font-bold text-slate-400">شهري</span>
@@ -160,6 +182,19 @@ export const CollectionPanelView: React.FC<CollectionPanelViewProps> = ({
           })
         )}
       </div>
+
+      {advanceApt && onAdvancePayment && (
+        <AdvancePaymentModal
+          isOpen={Boolean(advanceApt)}
+          onClose={() => setAdvanceApt(null)}
+          apartment={advanceApt}
+          currentMonthKey={monthData.key}
+          onConfirmAdvance={(aptId, count, note) => {
+            onAdvancePayment(aptId, count, note);
+            setAdvanceApt(null);
+          }}
+        />
+      )}
     </div>
   );
 };
