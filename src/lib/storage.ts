@@ -351,6 +351,63 @@ export function getNextMonthKey(currentKey: string): string {
   return `${y}-${String(m).padStart(2, '0')}`;
 }
 
+export function getAdvanceMonthKeys(startKey: string, count: number): string[] {
+  const keys: string[] = [startKey];
+  let current = startKey;
+  for (let i = 1; i < count; i++) {
+    current = getNextMonthKey(current);
+    keys.push(current);
+  }
+  return keys;
+}
+
+export function processAdvancePayment(
+  monthData: MonthData,
+  aptId: number,
+  advanceMonthsCount: number,
+  customNote?: string
+): MonthData {
+  if (advanceMonthsCount <= 0) return monthData;
+
+  const startKey = monthData.key;
+  const coveredKeys = getAdvanceMonthKeys(startKey, advanceMonthsCount);
+  const untilKey = coveredKeys[coveredKeys.length - 1];
+
+  let currentMonthDataUpdated: MonthData = monthData;
+
+  coveredKeys.forEach((key) => {
+    const mData = key === startKey ? monthData : getMonthData(key);
+    const updatedApts = mData.apartments.map((apt) => {
+      if (apt.id === aptId) {
+        return {
+          ...apt,
+          paid: true,
+          advanceMonths: advanceMonthsCount,
+          advanceStartKey: startKey,
+          advanceUntilKey: untilKey,
+          note: customNote || `مسدد مقدماً (${advanceMonthsCount} شهور حتى ${untilKey})`,
+        };
+      }
+      return apt;
+    });
+
+    const updatedMonthData: MonthData = {
+      ...mData,
+      manualCollectedEdited: false,
+      apartments: updatedApts,
+    };
+
+    const sanitized = syncAndSanitizeMonthData(updatedMonthData);
+    saveMonthData(sanitized);
+
+    if (key === startKey) {
+      currentMonthDataUpdated = sanitized;
+    }
+  });
+
+  return currentMonthDataUpdated;
+}
+
 // Transfer unpaid items to Debts at end of month or month switch
 export function transferUnpaidToDebts(monthKey: string) {
   // Requirement: المديونيات تبدأ من شهر 9 (سبتمبر) وما بعده

@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { MonthData, ExtraMaintenance } from '../types';
+import { MonthData, ExtraMaintenance, Apartment } from '../types';
 import { formatCurrency } from '../lib/buildingConfig';
 import { restoreMonthDataFromBackup } from '../lib/storage';
-import { FileSpreadsheet, CheckCircle2, XCircle, DollarSign, Printer, Search, RefreshCw, Radio, RotateCcw, ShieldCheck } from 'lucide-react';
+import { FileSpreadsheet, CheckCircle2, XCircle, DollarSign, Printer, Search, RefreshCw, Radio, RotateCcw, ShieldCheck, Calendar } from 'lucide-react';
+import { AdvancePaymentModal } from './AdvancePaymentModal';
 
 interface DataSheetTabProps {
   monthData: MonthData;
   activeExtraMaint: ExtraMaintenance | null;
   isFirebaseConnected?: boolean;
   onUpdateMonthData?: (updated: MonthData) => void;
+  onAdvancePayment?: (aptId: number, monthsCount: number, note: string) => void;
 }
 
 export const DataSheetTab: React.FC<DataSheetTabProps> = ({
@@ -16,9 +18,11 @@ export const DataSheetTab: React.FC<DataSheetTabProps> = ({
   activeExtraMaint,
   isFirebaseConnected = true,
   onUpdateMonthData,
+  onAdvancePayment,
 }) => {
   const [searchFilter, setSearchFilter] = useState('');
   const [activeSubTab, setActiveSubTab] = useState<'all' | 'paid' | 'unpaid' | 'expenses'>('all');
+  const [advanceApt, setAdvanceApt] = useState<Apartment | null>(null);
 
   const totalExpenses = monthData.expenses.reduce((s, e) => s + e.amount, 0);
 
@@ -64,33 +68,6 @@ export const DataSheetTab: React.FC<DataSheetTabProps> = ({
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      {/* Recovery Banner */}
-      <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-start gap-3">
-          <div className="p-2.5 bg-amber-500/20 text-amber-400 rounded-xl border border-amber-500/30 shrink-0">
-            <ShieldCheck className="w-5 h-5 text-amber-400" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-black text-amber-300">
-                مركز حماية واستعادة البيانات ({monthData.monthName} {monthData.year})
-              </span>
-            </div>
-            <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-              تتم حماية وتزامن بيانات المصروفات والمسددين تلقائياً. في حال عدم ظهور البيانات، اضغط الزر لاستعادتها فوراً من النسخة الاحتياطية.
-            </p>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={handleQuickRestore}
-          className="shrink-0 flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black px-4 py-2.5 rounded-xl text-xs shadow-md transition active:scale-95 w-full md:w-auto"
-        >
-          <RotateCcw className="w-4 h-4 stroke-[3]" />
-          <span>استعادة بيانات {monthData.monthName} الآن</span>
-        </button>
-      </div>
       {/* Header Banner */}
       <div className="bg-slate-900 border border-amber-500/40 rounded-2xl p-5 shadow-xl flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -368,10 +345,22 @@ export const DataSheetTab: React.FC<DataSheetTabProps> = ({
                         )}
                         <td className="p-3 font-black text-amber-400">{formatCurrency(totalDue)}</td>
                         <td className="p-3">
-                          <span className="inline-flex items-center gap-1 bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2.5 py-0.5 rounded-full text-[11px] font-bold">
-                            <XCircle className="w-3 h-3 text-amber-400" />
-                            <span>غير مسدد</span>
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1 bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2.5 py-0.5 rounded-full text-[11px] font-bold">
+                              <XCircle className="w-3 h-3 text-amber-400" />
+                              <span>غير مسدد</span>
+                            </span>
+                            {onAdvancePayment && (
+                              <button
+                                onClick={() => setAdvanceApt(apt)}
+                                className="inline-flex items-center gap-1 text-[10px] bg-emerald-500/20 hover:bg-emerald-500 hover:text-slate-950 text-emerald-300 border border-emerald-500/40 px-2 py-1 rounded-lg font-bold transition shadow-sm"
+                                title="تسديد عدة شهور مقدماً"
+                              >
+                                <Calendar className="w-3 h-3" />
+                                <span>تسديد مقدماً</span>
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -381,6 +370,19 @@ export const DataSheetTab: React.FC<DataSheetTabProps> = ({
             </div>
           )}
         </div>
+      )}
+
+      {advanceApt && onAdvancePayment && (
+        <AdvancePaymentModal
+          isOpen={Boolean(advanceApt)}
+          onClose={() => setAdvanceApt(null)}
+          apartment={advanceApt}
+          currentMonthKey={monthData.key}
+          onConfirmAdvance={(aptId, count, note) => {
+            onAdvancePayment(aptId, count, note);
+            setAdvanceApt(null);
+          }}
+        />
       )}
     </div>
   );

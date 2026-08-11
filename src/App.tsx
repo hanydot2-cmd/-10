@@ -18,6 +18,7 @@ import {
   getUsers,
   saveUsers,
   transferUnpaidToDebts,
+  processAdvancePayment,
   resetAllDataToFresh,
   saveMasterResidents,
 } from './lib/storage';
@@ -153,30 +154,21 @@ export default function App() {
       setIsFirebaseConnected(connected);
     });
 
-    // Auto-sync local data to Firebase on startup to preserve offline entries
-    uploadAllLocalDataToFirebase();
-
     return () => unsubscribe();
   }, []);
 
-  // REALtime FIREBASE LISTENERS SYNC
+  // REALTIME FIREBASE LISTENERS SYNC FOR INSTANT MULTI-DEVICE ACCURACY
   useEffect(() => {
     // 1. Month Data Listener
     const unsubMonth = listenToMonthData(currentMonthKey, (remoteData) => {
-      const local = getMonthData(currentMonthKey);
       if (remoteData) {
-        // Safe Merge to prevent wiping out local entries if remote snapshot is empty
-        const merged = mergeMonthData(local, remoteData);
-        setMonthDataState(merged);
-        saveMonthData(merged);
-        // Only write back to Firebase if merged contains more data than remote
-        const mergedPaid = merged.apartments.filter(a => a.paid).length;
-        const remotePaid = (remoteData.apartments || []).filter(a => a.paid).length;
-        if (merged.expenses.length > (remoteData.expenses || []).length || mergedPaid > remotePaid) {
-          saveMonthDataFirebase(merged);
-        }
+        // Direct ground-truth state from Firestore live database
+        const sanitized = syncAndSanitizeMonthData(remoteData);
+        setMonthDataState(sanitized);
+        saveMonthData(sanitized);
       } else {
-        // First initialization to Firebase -- ONLY IF LOCAL HAS REAL USER DATA!
+        // First time initialization for new month if document does not exist in Firebase
+        const local = getMonthData(currentMonthKey);
         const hasLocalData = local && (
           (local.expenses && local.expenses.length > 0) ||
           (local.apartments && local.apartments.some(a => a.paid || a.paidExtraMaint)) ||
@@ -186,7 +178,6 @@ export default function App() {
         if (hasLocalData) {
           saveMonthDataFirebase(local);
         } else {
-          // Keep local state in sync
           setMonthDataState(local);
         }
       }
@@ -194,14 +185,34 @@ export default function App() {
 
     // 2. Master Residents Listener
     const unsubResidents = listenToMasterResidents((remoteApts) => {
-      if (remoteApts) {
+      if (remoteApts && Array.isArray(remoteApts) && remoteApts.length > 0) {
         saveMasterResidents(remoteApts);
+        // Live sync master resident names/details into active monthData state instantly
+        setMonthDataState((prev) => {
+          const updatedApts = prev.apartments.map((apt) => {
+            const master = remoteApts.find((m) => m.id === apt.id || m.aptNumber === apt.aptNumber);
+            if (master) {
+              return {
+                ...apt,
+                name: master.name,
+                phone: master.phone,
+                floor: master.floor,
+                amount: apt.amount || master.amount,
+              };
+            }
+            return apt;
+          });
+          const updatedMonthData = { ...prev, apartments: updatedApts };
+          const sanitized = syncAndSanitizeMonthData(updatedMonthData);
+          saveMonthData(sanitized);
+          return sanitized;
+        });
       }
     });
 
     // 3. Debts Listener
     const unsubDebts = listenToDebts((remoteDebts) => {
-      if (remoteDebts) {
+      if (remoteDebts && Array.isArray(remoteDebts)) {
         const valid = filterValidDebts(remoteDebts);
         setDebtsState(valid);
         saveDebts(valid);
@@ -210,7 +221,7 @@ export default function App() {
 
     // 4. Extra Maintenance Listener
     const unsubExtra = listenToExtraMaintenance((remoteItems) => {
-      if (remoteItems) {
+      if (remoteItems && Array.isArray(remoteItems)) {
         setExtraMaintenancesState(remoteItems);
         saveExtraMaintenances(remoteItems);
       }
@@ -218,7 +229,7 @@ export default function App() {
 
     // 5. Users Listener
     const unsubUsers = listenToUsers((remoteUsers) => {
-      if (remoteUsers) {
+      if (remoteUsers && Array.isArray(remoteUsers)) {
         setUsersState(remoteUsers);
         saveUsers(remoteUsers);
       }
@@ -279,6 +290,13 @@ export default function App() {
   const handleUpdateMasterResidents = (apts: Apartment[]) => {
     saveMasterResidents(apts);
     saveMasterResidentsFirebase(apts);
+  };
+
+  // Advance Payment Handler
+  const handleAdvancePayment = (aptId: number, monthsCount: number, note: string) => {
+    const updated = processAdvancePayment(monthData, aptId, monthsCount, note);
+    setMonthDataState(updated);
+    saveMonthDataFirebase(updated);
   };
 
   // Debt Actions
@@ -482,6 +500,7 @@ export default function App() {
             activeExtraMaint={activeExtraMaint}
             onUpdateMonthData={handleUpdateMonthData}
             onUpdateMasterResidents={handleUpdateMasterResidents}
+            onAdvancePayment={handleAdvancePayment}
           />
         )}
 
@@ -508,6 +527,7 @@ export default function App() {
             activeExtraMaint={activeExtraMaint}
             isFirebaseConnected={isFirebaseConnected}
             onUpdateMonthData={handleUpdateMonthData}
+            onAdvancePayment={handleAdvancePayment}
           />
         )}
 
@@ -571,6 +591,7 @@ export default function App() {
               monthData={monthData}
               activeExtraMaint={activeExtraMaint}
               onUpdateMonthData={handleUpdateMonthData}
+              onAdvancePayment={handleAdvancePayment}
               onClose={() => setIsCollectionPanelOpen(false)}
             />
           </div>

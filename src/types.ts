@@ -10,6 +10,9 @@ export interface Apartment {
   skip: boolean; // true = closed (مغلقة - لا يطبع), false = open (مفتوحة - هيطبع)
   note?: string;
   paidExtraMaint?: boolean; // paid status for extra maintenance in this month
+  advanceMonths?: number; // number of advance months paid
+  advanceStartKey?: string; // month key where advance started, e.g. "2026-08"
+  advanceUntilKey?: string; // month key where advance ends, e.g. "2026-10"
 }
 
 export interface Expense {

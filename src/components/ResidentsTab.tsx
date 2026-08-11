@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Apartment, MonthData, ExtraMaintenance } from '../types';
 import { formatCurrency, formatNumber } from '../lib/buildingConfig';
-import { Search, Edit, CheckCircle, XCircle, Phone, MessageSquare, Save, X, Eye, EyeOff, Receipt, Download, Upload, ShieldCheck, RefreshCw } from 'lucide-react';
+import { Search, Edit, CheckCircle, XCircle, Phone, MessageSquare, Save, X, Eye, EyeOff, Receipt, Download, Upload, ShieldCheck, RefreshCw, Calendar } from 'lucide-react';
 import { ReceiptModal } from './ReceiptModal';
+import { AdvancePaymentModal } from './AdvancePaymentModal';
 import { restoreMonthDataFromBackup, saveMasterResidents } from '../lib/storage';
 import { saveMasterResidentsFirebase } from '../lib/firebase';
 
@@ -11,6 +12,7 @@ interface ResidentsTabProps {
   activeExtraMaint: ExtraMaintenance | null;
   onUpdateMonthData: (updated: MonthData) => void;
   onUpdateMasterResidents: (apts: Apartment[]) => void;
+  onAdvancePayment?: (aptId: number, monthsCount: number, note: string) => void;
 }
 
 export const ResidentsTab: React.FC<ResidentsTabProps> = ({
@@ -18,11 +20,13 @@ export const ResidentsTab: React.FC<ResidentsTabProps> = ({
   activeExtraMaint,
   onUpdateMonthData,
   onUpdateMasterResidents,
+  onAdvancePayment,
 }) => {
   const [searchTerm, setSearchName] = useState('');
   const [showClosed, setShowClosed] = useState(false);
   const [editingApt, setEditingApt] = useState<Apartment | null>(null);
   const [selectedAptForReceipt, setSelectedAptForReceipt] = useState<Apartment | null>(null);
+  const [advanceApt, setAdvanceApt] = useState<Apartment | null>(null);
 
   // Form State for Resident Edit Modal
   const [formName, setFormName] = useState('');
@@ -246,6 +250,20 @@ export const ResidentsTab: React.FC<ResidentsTabProps> = ({
         />
       )}
 
+      {/* Advance Payment Modal */}
+      {advanceApt && onAdvancePayment && (
+        <AdvancePaymentModal
+          isOpen={Boolean(advanceApt)}
+          onClose={() => setAdvanceApt(null)}
+          apartment={advanceApt}
+          currentMonthKey={monthData.key}
+          onConfirmAdvance={(aptId, count, note) => {
+            onAdvancePayment(aptId, count, note);
+            setAdvanceApt(null);
+          }}
+        />
+      )}
+
       {/* GLOBAL MONTHLY MAINTENANCE FEE INPUT PANEL */}
       <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-amber-950/40 border border-amber-500/40 rounded-2xl p-4 shadow-lg space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -400,22 +418,42 @@ export const ResidentsTab: React.FC<ResidentsTabProps> = ({
                       {formatCurrency(apt.amount)}
                     </td>
                     <td className="p-3 text-center">
-                      <label className="inline-flex items-center gap-1 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={apt.paid}
-                          disabled={apt.skip}
-                          onChange={(e) => handleTogglePaid(apt.id, e.target.checked)}
-                          className="w-4 h-4 accent-emerald-500 rounded cursor-pointer"
-                        />
-                        <span
-                          className={`text-[11px] font-bold ${
-                            apt.paid ? 'text-emerald-400' : 'text-slate-400'
-                          }`}
-                        >
-                          {apt.paid ? 'مسدد ✓' : 'غير مسدد'}
-                        </span>
-                      </label>
+                      <div className="flex flex-col items-center gap-1">
+                        <label className="inline-flex items-center gap-1 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={apt.paid}
+                            disabled={apt.skip}
+                            onChange={(e) => handleTogglePaid(apt.id, e.target.checked)}
+                            className="w-4 h-4 accent-emerald-500 rounded cursor-pointer"
+                          />
+                          <span
+                            className={`text-[11px] font-bold ${
+                              apt.paid ? 'text-emerald-400' : 'text-slate-400'
+                            }`}
+                          >
+                            {apt.paid ? 'مسدد ✓' : 'غير مسدد'}
+                          </span>
+                        </label>
+
+                        {!apt.paid && !apt.skip && onAdvancePayment && (
+                          <button
+                            onClick={() => setAdvanceApt(apt)}
+                            className="inline-flex items-center gap-1 text-[10px] bg-emerald-500/15 hover:bg-emerald-500 hover:text-slate-950 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-md font-bold transition shadow-sm mt-0.5"
+                            title="تسديد عدة شهور مقدماً"
+                          >
+                            <Calendar className="w-3 h-3" />
+                            <span>تسديد مقدماً</span>
+                          </button>
+                        )}
+
+                        {apt.paid && apt.advanceUntilKey && (
+                          <span className="inline-flex items-center gap-1 text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-1.5 py-0.5 rounded font-black mt-0.5" title={`مسدد مقدماً حتى ${apt.advanceUntilKey}`}>
+                            <Calendar className="w-2.5 h-2.5 text-amber-400" />
+                            <span>مقدماً حتى {apt.advanceUntilKey}</span>
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="p-3 text-center">
                       {apt.skip ? (
