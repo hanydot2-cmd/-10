@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Settings, Trash2, Download, Upload, Users, Moon, Sun, ShieldAlert, Wifi, RefreshCw, KeyRound, CheckCircle2, XCircle, Palette, Check, Type } from 'lucide-react';
-import { testFirebaseConnection, uploadAllLocalDataToFirebase } from '../lib/firebase';
+import { testFirebaseConnection } from '../lib/firebase';
 import { AppTheme, AppFont } from '../types';
 
 interface SettingsTabProps {
@@ -48,19 +48,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     }
   };
 
-  const [syncingCloud, setSyncingCloud] = useState(false);
-
-  const handleSyncAllToCloud = async () => {
-    setSyncingCloud(true);
-    const res = await uploadAllLocalDataToFirebase();
-    setSyncingCloud(false);
-    if (res.success) {
-      alert(`✅ تمت مزامنة ورفع كافة البيانات والسجلات للسحابة (Firebase) بنجاح!\nتستطيع الآن فتح التطبيق من أي جهاز آخر أو رابط معاينة وشاهد البيانات المحدثة.`);
-    } else {
-      alert('⚠️ حدث خطأ أثناء المزامنة بالسحابة، يرجى التأكد من الاتصال بالإنترنت وإعادة المحاولة.');
-    }
-  };
-
   const handleBackupExport = () => {
     const backupData: Record<string, string | null> = {};
     for (let i = 0; i < localStorage.length; i++) {
@@ -83,24 +70,16 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = async (event) => {
+    reader.onload = (event) => {
       try {
         const text = event.target?.result as string;
         const data = JSON.parse(text);
-        
-        let restoredKeysCount = 0;
         Object.keys(data).forEach((k) => {
-          if (k.startsWith('bmu10_') && data[k] !== undefined && data[k] !== null) {
-            const val = typeof data[k] === 'string' ? data[k] : JSON.stringify(data[k]);
-            localStorage.setItem(k, val);
-            restoredKeysCount++;
+          if (k.startsWith('bmu10_') && data[k]) {
+            localStorage.setItem(k, data[k]);
           }
         });
-
-        // Sync restored local data to Firebase instantly
-        await uploadAllLocalDataToFirebase();
-
-        alert(`تمت استعادة ${restoredKeysCount} عنصر من النسخة الاحتياطية ومزامنتها بنجاح مع السحابة!`);
+        alert('تمت استعادة النسخة الاحتياطية بنجاح!');
         window.location.reload();
       } catch (err) {
         alert('حدث خطأ أثناء قراءة ملف النسخة الاحتياطية');
@@ -187,27 +166,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             >
               <RefreshCw className={`w-3.5 h-3.5 ${testing ? 'animate-spin' : ''}`} />
               <span>{testing ? 'جاري الفحص...' : 'فحص الاتصال بـ Firebase'}</span>
-            </button>
-          </div>
-
-          {/* Sync All Local Data to Firebase Cloud Button */}
-          <div className="bg-amber-500/10 p-3.5 rounded-xl border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div>
-              <span className="text-xs font-black text-amber-300 block">
-                مزامنة ورفع جميع البيانات والشهور إلى السحابة (Firebase)
-              </span>
-              <p className="text-[11px] text-slate-300 mt-0.5">
-                تأكيد رفع كافة المصروفات وسجلات المسددين والسكان من جهازك الحالي إلى خادم Firebase لتظهر فوراً على الأجهزة والأوضاع الأخرى.
-              </p>
-            </div>
-
-            <button
-              onClick={handleSyncAllToCloud}
-              disabled={syncingCloud}
-              className="flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-4 py-2 rounded-xl text-xs shadow transition active:scale-95 disabled:opacity-50 shrink-0 w-full sm:w-auto"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 stroke-[2.5] ${syncingCloud ? 'animate-spin' : ''}`} />
-              <span>{syncingCloud ? 'جاري المزامنة...' : 'مزامنة ورفع كافة البيانات للسحابة الآن'}</span>
             </button>
           </div>
         </div>

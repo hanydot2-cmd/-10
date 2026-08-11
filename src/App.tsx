@@ -6,19 +6,15 @@ import {
   getMonthData,
   saveMonthData,
   syncAndSanitizeMonthData,
-  mergeMonthData,
-  restoreMonthDataFromBackup,
   getNextMonthKey,
   getExtraMaintenances,
   saveExtraMaintenances,
   getActiveExtraMaintenance,
   getDebts,
   saveDebts,
-  filterValidDebts,
   getUsers,
   saveUsers,
   transferUnpaidToDebts,
-  processAdvancePayment,
   resetAllDataToFresh,
   saveMasterResidents,
 } from './lib/storage';
@@ -35,7 +31,6 @@ import {
   listenToUsers,
   saveUsersFirebase,
   subscribeFirebaseConnection,
-  uploadAllLocalDataToFirebase,
 } from './lib/firebase';
 
 import { Header } from './components/Header';
@@ -152,90 +147,43 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = subscribeFirebaseConnection((connected) => {
       setIsFirebaseConnected(connected);
-      if (connected) {
-        // Automatically ensure any local data/restored backup is uploaded to Firebase
-        uploadAllLocalDataToFirebase();
-      }
     });
-
     return () => unsubscribe();
   }, []);
 
-  // REALTIME FIREBASE LISTENERS SYNC FOR INSTANT MULTI-DEVICE ACCURACY
+  // REALtime FIREBASE LISTENERS SYNC
   useEffect(() => {
     // 1. Month Data Listener
     const unsubMonth = listenToMonthData(currentMonthKey, (remoteData) => {
-      const local = getMonthData(currentMonthKey);
       if (remoteData) {
-        // Safely merge local and remote data so local edits or restored JSON backups are preserved
-        const merged = local ? mergeMonthData(local, remoteData) : syncAndSanitizeMonthData(remoteData);
-        setMonthDataState(merged);
-        saveMonthData(merged);
-
-        // If merged/local has more data than remote, sync merged back to Firebase
-        const localPaidCount = (local?.apartments || []).filter((a) => a.paid).length;
-        const remotePaidCount = (remoteData?.apartments || []).filter((a) => a.paid).length;
-        const localExpensesCount = (local?.expenses || []).length;
-        const remoteExpensesCount = (remoteData?.expenses || []).length;
-        const localHasNames = (local?.apartments || []).some((a) => a.name && a.name.trim() !== '');
-        const remoteHasNames = (remoteData?.apartments || []).some((a) => a.name && a.name.trim() !== '');
-
-        if (
-          localPaidCount > remotePaidCount ||
-          localExpensesCount > remoteExpensesCount ||
-          (localHasNames && !remoteHasNames) ||
-          local?.manualPrevBalanceEdited
-        ) {
-          saveMonthDataFirebase(merged);
-        }
+        const sanitized = syncAndSanitizeMonthData(remoteData);
+        setMonthDataState(sanitized);
+        saveMonthData(sanitized);
       } else {
-        // First time initialization for new month if document does not exist in Firebase
-        if (local) {
-          saveMonthDataFirebase(local);
-          setMonthDataState(local);
-        }
+        // First initialization to Firebase
+        const local = getMonthData(currentMonthKey);
+        saveMonthDataFirebase(local);
       }
     });
 
     // 2. Master Residents Listener
     const unsubResidents = listenToMasterResidents((remoteApts) => {
-      if (remoteApts && Array.isArray(remoteApts) && remoteApts.length > 0) {
+      if (remoteApts) {
         saveMasterResidents(remoteApts);
-        // Live sync master resident names/details into active monthData state instantly
-        setMonthDataState((prev) => {
-          const updatedApts = prev.apartments.map((apt) => {
-            const master = remoteApts.find((m) => m.id === apt.id || m.aptNumber === apt.aptNumber);
-            if (master) {
-              return {
-                ...apt,
-                name: master.name,
-                phone: master.phone,
-                floor: master.floor,
-                amount: apt.amount || master.amount,
-              };
-            }
-            return apt;
-          });
-          const updatedMonthData = { ...prev, apartments: updatedApts };
-          const sanitized = syncAndSanitizeMonthData(updatedMonthData);
-          saveMonthData(sanitized);
-          return sanitized;
-        });
       }
     });
 
     // 3. Debts Listener
     const unsubDebts = listenToDebts((remoteDebts) => {
-      if (remoteDebts && Array.isArray(remoteDebts)) {
-        const valid = filterValidDebts(remoteDebts);
-        setDebtsState(valid);
-        saveDebts(valid);
+      if (remoteDebts) {
+        setDebtsState(remoteDebts);
+        saveDebts(remoteDebts);
       }
     });
 
     // 4. Extra Maintenance Listener
     const unsubExtra = listenToExtraMaintenance((remoteItems) => {
-      if (remoteItems && Array.isArray(remoteItems)) {
+      if (remoteItems) {
         setExtraMaintenancesState(remoteItems);
         saveExtraMaintenances(remoteItems);
       }
@@ -243,7 +191,7 @@ export default function App() {
 
     // 5. Users Listener
     const unsubUsers = listenToUsers((remoteUsers) => {
-      if (remoteUsers && Array.isArray(remoteUsers)) {
+      if (remoteUsers) {
         setUsersState(remoteUsers);
         saveUsers(remoteUsers);
       }
@@ -287,7 +235,7 @@ export default function App() {
     let currentKey = sanitized.key;
     for (let i = 0; i < 12; i++) {
       const nextKey = getNextMonthKey(currentKey);
-      const raw = localStorage.getItem('bmu10_months_data_' + nextKey);
+      const raw = localStorage.getItem('bmu10_month_' + nextKey);
       if (!raw) break;
       try {
         const nextData: MonthData = JSON.parse(raw);
@@ -304,13 +252,6 @@ export default function App() {
   const handleUpdateMasterResidents = (apts: Apartment[]) => {
     saveMasterResidents(apts);
     saveMasterResidentsFirebase(apts);
-  };
-
-  // Advance Payment Handler
-  const handleAdvancePayment = (aptId: number, monthsCount: number, note: string) => {
-    const updated = processAdvancePayment(monthData, aptId, monthsCount, note);
-    setMonthDataState(updated);
-    saveMonthDataFirebase(updated);
   };
 
   // Debt Actions
@@ -514,7 +455,6 @@ export default function App() {
             activeExtraMaint={activeExtraMaint}
             onUpdateMonthData={handleUpdateMonthData}
             onUpdateMasterResidents={handleUpdateMasterResidents}
-            onAdvancePayment={handleAdvancePayment}
           />
         )}
 
@@ -540,8 +480,6 @@ export default function App() {
             monthData={monthData}
             activeExtraMaint={activeExtraMaint}
             isFirebaseConnected={isFirebaseConnected}
-            onUpdateMonthData={handleUpdateMonthData}
-            onAdvancePayment={handleAdvancePayment}
           />
         )}
 
@@ -605,7 +543,6 @@ export default function App() {
               monthData={monthData}
               activeExtraMaint={activeExtraMaint}
               onUpdateMonthData={handleUpdateMonthData}
-              onAdvancePayment={handleAdvancePayment}
               onClose={() => setIsCollectionPanelOpen(false)}
             />
           </div>
