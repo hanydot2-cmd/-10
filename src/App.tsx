@@ -152,6 +152,10 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = subscribeFirebaseConnection((connected) => {
       setIsFirebaseConnected(connected);
+      if (connected) {
+        // Automatically ensure any local data/restored backup is uploaded to Firebase
+        uploadAllLocalDataToFirebase();
+      }
     });
 
     return () => unsubscribe();
@@ -161,23 +165,33 @@ export default function App() {
   useEffect(() => {
     // 1. Month Data Listener
     const unsubMonth = listenToMonthData(currentMonthKey, (remoteData) => {
+      const local = getMonthData(currentMonthKey);
       if (remoteData) {
-        // Direct ground-truth state from Firestore live database
-        const sanitized = syncAndSanitizeMonthData(remoteData);
-        setMonthDataState(sanitized);
-        saveMonthData(sanitized);
+        // Safely merge local and remote data so local edits or restored JSON backups are preserved
+        const merged = local ? mergeMonthData(local, remoteData) : syncAndSanitizeMonthData(remoteData);
+        setMonthDataState(merged);
+        saveMonthData(merged);
+
+        // If merged/local has more data than remote, sync merged back to Firebase
+        const localPaidCount = (local?.apartments || []).filter((a) => a.paid).length;
+        const remotePaidCount = (remoteData?.apartments || []).filter((a) => a.paid).length;
+        const localExpensesCount = (local?.expenses || []).length;
+        const remoteExpensesCount = (remoteData?.expenses || []).length;
+        const localHasNames = (local?.apartments || []).some((a) => a.name && a.name.trim() !== '');
+        const remoteHasNames = (remoteData?.apartments || []).some((a) => a.name && a.name.trim() !== '');
+
+        if (
+          localPaidCount > remotePaidCount ||
+          localExpensesCount > remoteExpensesCount ||
+          (localHasNames && !remoteHasNames) ||
+          local?.manualPrevBalanceEdited
+        ) {
+          saveMonthDataFirebase(merged);
+        }
       } else {
         // First time initialization for new month if document does not exist in Firebase
-        const local = getMonthData(currentMonthKey);
-        const hasLocalData = local && (
-          (local.expenses && local.expenses.length > 0) ||
-          (local.apartments && local.apartments.some(a => a.paid || a.paidExtraMaint)) ||
-          local.manualPrevBalanceEdited ||
-          (local.collectedAmount && local.collectedAmount > 0)
-        );
-        if (hasLocalData) {
+        if (local) {
           saveMonthDataFirebase(local);
-        } else {
           setMonthDataState(local);
         }
       }

@@ -83,16 +83,24 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const text = event.target?.result as string;
         const data = JSON.parse(text);
+        
+        let restoredKeysCount = 0;
         Object.keys(data).forEach((k) => {
-          if (k.startsWith('bmu10_') && data[k]) {
-            localStorage.setItem(k, data[k]);
+          if (k.startsWith('bmu10_') && data[k] !== undefined && data[k] !== null) {
+            const val = typeof data[k] === 'string' ? data[k] : JSON.stringify(data[k]);
+            localStorage.setItem(k, val);
+            restoredKeysCount++;
           }
         });
-        alert('تمت استعادة النسخة الاحتياطية بنجاح!');
+
+        // Sync restored local data to Firebase instantly
+        await uploadAllLocalDataToFirebase();
+
+        alert(`تمت استعادة ${restoredKeysCount} عنصر من النسخة الاحتياطية ومزامنتها بنجاح مع السحابة!`);
         window.location.reload();
       } catch (err) {
         alert('حدث خطأ أثناء قراءة ملف النسخة الاحتياطية');

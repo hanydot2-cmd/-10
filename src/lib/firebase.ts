@@ -9,6 +9,7 @@ import {
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { MonthData, DebtItem, ExtraMaintenance, DataEntryUser, Apartment } from '../types';
+import { syncAndSanitizeMonthData } from './storage';
 
 // Initialize Firebase App
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
@@ -291,17 +292,10 @@ export async function uploadAllLocalDataToFirebase(): Promise<{ count: number; s
         if (raw) {
           try {
             const data: MonthData = JSON.parse(raw);
-            if (data && data.key) {
-              const hasContent =
-                (data.expenses && data.expenses.length > 0) ||
-                (data.apartments && data.apartments.some((a) => a.paid || a.paidExtraMaint)) ||
-                data.manualPrevBalanceEdited ||
-                (data.collectedAmount && data.collectedAmount > 0);
-
-              if (hasContent) {
-                await saveMonthDataFirebase(data);
-                uploadedMonthsCount++;
-              }
+            if (data && data.key && Array.isArray(data.apartments) && data.apartments.length > 0) {
+              const sanitized = syncAndSanitizeMonthData(data);
+              await saveMonthDataFirebase(sanitized);
+              uploadedMonthsCount++;
             }
           } catch (e) {}
         }
