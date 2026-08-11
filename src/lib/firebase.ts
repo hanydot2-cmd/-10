@@ -234,3 +234,84 @@ export async function saveUsersFirebase(users: DataEntryUser[]) {
     setConnectionState(false);
   }
 }
+
+// Bulk Sync: Upload all local data (months, residents, debts, extra, users) to Firebase
+export async function uploadAllLocalDataToFirebase(): Promise<{ count: number; success: boolean }> {
+  let uploadedMonthsCount = 0;
+  try {
+    // 1. Upload Master Residents
+    const rawResidents = localStorage.getItem('bmu10_master_residents');
+    if (rawResidents) {
+      try {
+        const apts = JSON.parse(rawResidents);
+        if (Array.isArray(apts) && apts.length > 0) {
+          await saveMasterResidentsFirebase(apts);
+        }
+      } catch (e) {}
+    }
+
+    // 2. Upload Debts
+    const rawDebts = localStorage.getItem('bmu10_debts');
+    if (rawDebts) {
+      try {
+        const debts = JSON.parse(rawDebts);
+        if (Array.isArray(debts)) {
+          await saveDebtsFirebase(debts);
+        }
+      } catch (e) {}
+    }
+
+    // 3. Upload Extra Maintenance
+    const rawExtra = localStorage.getItem('bmu10_extra_maint');
+    if (rawExtra) {
+      try {
+        const extra = JSON.parse(rawExtra);
+        if (Array.isArray(extra)) {
+          await saveExtraMaintenanceFirebase(extra);
+        }
+      } catch (e) {}
+    }
+
+    // 4. Upload Users
+    const rawUsers = localStorage.getItem('bmu10_users');
+    if (rawUsers) {
+      try {
+        const users = JSON.parse(rawUsers);
+        if (Array.isArray(users)) {
+          await saveUsersFirebase(users);
+        }
+      } catch (e) {}
+    }
+
+    // 5. Upload All Month Data from localStorage
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith('bmu10_months_data_') || key.startsWith('bmu10_backup_bmu10_months_data_'))) {
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          try {
+            const data: MonthData = JSON.parse(raw);
+            if (data && data.key) {
+              const hasContent =
+                (data.expenses && data.expenses.length > 0) ||
+                (data.apartments && data.apartments.some((a) => a.paid || a.paidExtraMaint)) ||
+                data.manualPrevBalanceEdited ||
+                (data.collectedAmount && data.collectedAmount > 0);
+
+              if (hasContent) {
+                await saveMonthDataFirebase(data);
+                uploadedMonthsCount++;
+              }
+            }
+          } catch (e) {}
+        }
+      }
+    }
+
+    return { count: uploadedMonthsCount, success: true };
+  } catch (err) {
+    console.warn('Error in uploadAllLocalDataToFirebase:', err);
+    return { count: uploadedMonthsCount, success: false };
+  }
+}
+

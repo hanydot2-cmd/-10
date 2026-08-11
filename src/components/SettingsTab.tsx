@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Settings, Trash2, Download, Upload, Users, Moon, Sun, ShieldAlert, Wifi, RefreshCw, KeyRound, CheckCircle2, XCircle, Palette, Check, Type } from 'lucide-react';
-import { testFirebaseConnection } from '../lib/firebase';
+import { testFirebaseConnection, uploadAllLocalDataToFirebase } from '../lib/firebase';
 import { AppTheme, AppFont } from '../types';
 
 interface SettingsTabProps {
@@ -45,6 +45,19 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       setTestResult({ connected: false, latencyMs: 0, error: err?.message || 'فشل الاتصال' });
     } finally {
       setTesting(false);
+    }
+  };
+
+  const [syncingCloud, setSyncingCloud] = useState(false);
+
+  const handleSyncAllToCloud = async () => {
+    setSyncingCloud(true);
+    const res = await uploadAllLocalDataToFirebase();
+    setSyncingCloud(false);
+    if (res.success) {
+      alert(`✅ تمت مزامنة ورفع كافة البيانات والسجلات للسحابة (Firebase) بنجاح!\nتستطيع الآن فتح التطبيق من أي جهاز آخر أو رابط معاينة وشاهد البيانات المحدثة.`);
+    } else {
+      alert('⚠️ حدث خطأ أثناء المزامنة بالسحابة، يرجى التأكد من الاتصال بالإنترنت وإعادة المحاولة.');
     }
   };
 
@@ -166,6 +179,27 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             >
               <RefreshCw className={`w-3.5 h-3.5 ${testing ? 'animate-spin' : ''}`} />
               <span>{testing ? 'جاري الفحص...' : 'فحص الاتصال بـ Firebase'}</span>
+            </button>
+          </div>
+
+          {/* Sync All Local Data to Firebase Cloud Button */}
+          <div className="bg-amber-500/10 p-3.5 rounded-xl border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div>
+              <span className="text-xs font-black text-amber-300 block">
+                مزامنة ورفع جميع البيانات والشهور إلى السحابة (Firebase)
+              </span>
+              <p className="text-[11px] text-slate-300 mt-0.5">
+                تأكيد رفع كافة المصروفات وسجلات المسددين والسكان من جهازك الحالي إلى خادم Firebase لتظهر فوراً على الأجهزة والأوضاع الأخرى.
+              </p>
+            </div>
+
+            <button
+              onClick={handleSyncAllToCloud}
+              disabled={syncingCloud}
+              className="flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-4 py-2 rounded-xl text-xs shadow transition active:scale-95 disabled:opacity-50 shrink-0 w-full sm:w-auto"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 stroke-[2.5] ${syncingCloud ? 'animate-spin' : ''}`} />
+              <span>{syncingCloud ? 'جاري المزامنة...' : 'مزامنة ورفع كافة البيانات للسحابة الآن'}</span>
             </button>
           </div>
         </div>

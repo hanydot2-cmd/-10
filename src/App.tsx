@@ -34,6 +34,7 @@ import {
   listenToUsers,
   saveUsersFirebase,
   subscribeFirebaseConnection,
+  uploadAllLocalDataToFirebase,
 } from './lib/firebase';
 
 import { Header } from './components/Header';
@@ -151,6 +152,10 @@ export default function App() {
     const unsubscribe = subscribeFirebaseConnection((connected) => {
       setIsFirebaseConnected(connected);
     });
+
+    // Auto-sync local data to Firebase on startup to preserve offline entries
+    uploadAllLocalDataToFirebase();
+
     return () => unsubscribe();
   }, []);
 
@@ -171,8 +176,19 @@ export default function App() {
           saveMonthDataFirebase(merged);
         }
       } else {
-        // First initialization to Firebase
-        saveMonthDataFirebase(local);
+        // First initialization to Firebase -- ONLY IF LOCAL HAS REAL USER DATA!
+        const hasLocalData = local && (
+          (local.expenses && local.expenses.length > 0) ||
+          (local.apartments && local.apartments.some(a => a.paid || a.paidExtraMaint)) ||
+          local.manualPrevBalanceEdited ||
+          (local.collectedAmount && local.collectedAmount > 0)
+        );
+        if (hasLocalData) {
+          saveMonthDataFirebase(local);
+        } else {
+          // Keep local state in sync
+          setMonthDataState(local);
+        }
       }
     });
 
